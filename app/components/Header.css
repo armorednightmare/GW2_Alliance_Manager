@@ -1,0 +1,82 @@
+.main-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem 2rem;
+  background-color: var(--surface-color);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  color: white;
+  border-bottom: 1px solid var(--border-color);
+  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+}
+
+.main-header h2 {
+  color: white;
+  margin: 0;
+  text-decoration: none;
+  text-shadow: 0 0 10px rgba(102, 252, 241, 0.4);
+}
+
+.logo-area a {
+  text-decoration: none;
+}
+
+.auth-area {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+}
+
+.user-greeting {
+  font-size: 0.9rem;
+  opacity: 0.9;
+}
+
+button, .btn-login, .btn-logout {
+  cursor: pointer;
+  padding: 0.6rem 1.2rem;
+  border-radius: 8px;
+  border: none;
+  font-weight: 600;
+  transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.btn-login {
+  background-color: var(--accent-color);
+  color: var(--bg-color);
+  box-shadow: 0 0 10px rgba(102, 252, 241, 0.2);
+}
+.btn-login:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(102, 252, 241, 0.6);
+}
+
+.btn-logout {
+  background-color: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: white;
+}
+.btn-logout:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+  border-color: white;
+}
+
+.alliance-logo {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 2px solid rgba(102, 252, 241, 0.5);
+  box-shadow: 0 0 12px rgba(102, 252, 241, 0.3);
+  transition: all 0.3s ease;
+}
+
+.alliance-logo:hover {
+  box-shadow: 0 0 20px rgba(102, 252, 241, 0.6);
+  transform: scale(1.05);
+}

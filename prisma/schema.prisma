@@ -1,0 +1,129 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ====== SYSTEM ======
+model SystemSettings {
+  id              String @id @default(cuid())
+  allianceName    String @default("Alliance")
+  logoUrl         String?
+  colorPrimary    String @default("#2c3e50")
+  colorAccent     String @default("#27ae60")
+  colorBg         String @default("#121212")
+  apiSyncInterval Int    @default(60) // in minutes
+}
+
+// ====== ROLES ======
+model ManualRole {
+  id      String @id @default(cuid())
+  name    String @unique
+  color   String @default("#ffffff")
+}
+
+// ====== USERS ======
+enum Role {
+  ADMIN
+  ALLIANCE_LEADER
+  GUILD_LEADER
+  WEB_MEMBER
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  passwordHash  String?   // For local login
+  role          Role      @default(WEB_MEMBER)
+  
+  // Link to GW2 Member
+  memberId      String?   @unique
+  member        Member?   @relation(fields: [memberId], references: [id], onDelete: SetNull)
+
+  // External IDs
+  discordId     String?
+
+  managedGuilds Guild[] @relation("GuildManagers")
+
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+// ====== GW2 ALLIANCE ======
+model Guild {
+  id              String   @id // The GW2 internal Guild ID
+  name            String
+  tag             String
+  leaderToken     String?  // Optional API key to fetch roster
+  isAllianceGuild Boolean  @default(false)
+
+  members            Member[] @relation("PrimaryMember")
+  subGuildMembers    Member[] @relation("SubGuildMember")
+  managers           User[]   @relation("GuildManagers")
+}
+
+enum MemberStatus {
+  ACTIVE
+  INACTIVE_LEFT
+  FRIEND
+}
+
+model Member {
+  id          String   @id @default(cuid())
+  accountName String   @unique // e.g. Name.1234
+  
+  guildId     String?
+  guild       Guild?   @relation("PrimaryMember", fields: [guildId], references: [id], onDelete: SetNull)
+  subGuildId  String?
+  subGuild    Guild?   @relation("SubGuildMember", fields: [subGuildId], references: [id], onDelete: SetNull)
+  
+  status      MemberStatus @default(ACTIVE)
+  rank        String?
+  wvwMember         Boolean  @default(false)
+  isAllianceMember  Boolean  @default(false)
+  invitedBy         String?
+
+  // System relation
+  linkedUser  User?
+  
+  // Custom tracking
+  manualRole  String?
+  comment     String?
+
+  history     MemberHistory[]
+
+  joinedAt    DateTime?
+  lastSeenAt      DateTime? // Automated (Roster Sync)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+// ====== HISTORY ======
+enum HistoryEventType {
+  JOINED
+  LEFT
+  RANK_CHANGE
+  WVW_STATUS_CHANGE
+  COMMENT_ADDED
+  COMMENT_CHANGED
+}
+
+model MemberHistory {
+  id          String   @id @default(cuid())
+  
+  memberId    String
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  
+  eventType   HistoryEventType
+  oldValue    String?
+  newValue    String?
+  
+  createdAt   DateTime @default(now())
+}

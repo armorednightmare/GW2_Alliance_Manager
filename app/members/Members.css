@@ -1,0 +1,94 @@
+.table-wrapper {
+  overflow-x: auto;
+  margin-top: 1.5rem;
+}
+
+.member-table {
+  width: 100%;
+  border-collapse: collapse;
+  background-color: var(--surface-color);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.member-table th, .member-table td {
+  padding: 1rem;
+  text-align: left;
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  transition: background-color 0.2s;
+}
+
+.member-table th {
+  background-color: rgba(255,255,255,0.05);
+  font-weight: bold;
+}
+.member-table th:hover {
+  background-color: rgba(102, 252, 241, 0.1);
+}
+
+.member-table tr:hover td {
+  background-color: rgba(102, 252, 241, 0.05);
+}
+
+.row-warning {
+  border-left: 4px solid var(--danger-color);
+}
+
+.status-badge {
+  padding: 0.3rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+}
+
+.status-active { background-color: var(--accent-color); color: var(--bg-color); }
+.status-inactive_left { background-color: #7f8c8d; color: white; }
+.status-friend { background-color: #f39c12; color: white; }
+
+.btn-details {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 0.5rem 1rem;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+.btn-details:hover {
+  background-color: var(--accent-color);
+  color: var(--bg-color);
+  box-shadow: 0 0 10px rgba(102, 252, 241, 0.4);
+}
+
+.search-input {
+  padding: 0.8rem 1rem;
+  width: 100%;
+  max-width: 400px;
+  border: 1px solid var(--border-color);
+  background: var(--surface-color);
+  color: white;
+  border-radius: 8px;
+  outline: none;
+  transition: all 0.2s;
+}
+.search-input:focus {
+  border-color: var(--accent-color);
+  box-shadow: 0 0 15px rgba(102, 252, 241, 0.2);
+}
+
+/* History row highlight animation when navigating from Dashboard */
+@keyframes highlightPulse {
+  0%   { background-color: rgba(102, 252, 241, 0.22); box-shadow: inset 0 0 0 2px rgba(102, 252, 241, 0.8); }
+  50%  { background-color: rgba(102, 252, 241, 0.06); box-shadow: inset 0 0 0 2px rgba(102, 252, 241, 0.2); }
+  100% { background-color: rgba(102, 252, 241, 0.22); box-shadow: inset 0 0 0 2px rgba(102, 252, 241, 0.8); }
+}
+
+.highlighted-row td {
+  animation: highlightPulse 1.2s ease-in-out 3;
+  background-color: rgba(102, 252, 241, 0.1) !important;
+}
+

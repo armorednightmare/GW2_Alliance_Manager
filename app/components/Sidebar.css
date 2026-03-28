@@ -1,0 +1,30 @@
+.main-sidebar {
+  width: 250px;
+  background-color: var(--surface-color);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-right: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+}
+
+.main-sidebar nav ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.main-sidebar nav ul li a {
+  display: block;
+  padding: 1rem 2rem;
+  color: var(--text-color);
+  text-decoration: none;
+  transition: all 0.3s ease;
+  border-left: 3px solid transparent;
+}
+
+.main-sidebar nav ul li a:hover {
+  background-color: rgba(102, 252, 241, 0.1);
+  border-left-color: var(--accent-color);
+  padding-left: 2.2rem;
+}
