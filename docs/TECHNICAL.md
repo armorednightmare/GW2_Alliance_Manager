@@ -30,7 +30,12 @@ Speichert Informationen über die in der Allianz vertretenen Gilden.
 ### 2. Member (Mitglied)
 Repräsentiert einen GW2-Account.
 - `accountName`: GW2 Account (z.B. `User.1234`).
-- `status`: Markiert das Mitglied als `ACTIVE`, `INACTIVE_LEFT` oder `FRIEND`.
+- `status`: Markiert den aktuellen Status des Mitglieds:
+    - `ACTIVE`: Das Mitglied ist derzeit in mindestens einer der getrackten Gilden im Roster vorhanden.
+    - `INACTIVE_LEFT`: Das Mitglied war zuvor in einer Gilde, wird aber im aktuellen API-Roster nicht mehr gefunden (Gilde verlassen oder entfernt).
+    - `FRIEND`: Ein manuell hinzugefügter Gast oder ein Account, der nicht direkt zur Allianz gehört, aber in der Datenbank geführt wird.
+- `wvwMember` (Kampfgilde): Markiert, ob das Mitglied Teil einer Gilde ist, die als aktive WvW-Kampfgilde innerhalb der Allianz registriert ist.
+- `isAllianceMember` (Allianz): Gibt an, ob der Account offiziell zum Kern-Allianz-Verbund gehört.
 - `guild` / `subGuild`: Beziehungen zur Haupt-Allianzgilde und zur spezifischen Kampfgilde.
 
 ### 3. MemberHistory (Ereignisverlauf)

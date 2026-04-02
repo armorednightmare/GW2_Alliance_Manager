@@ -30,7 +30,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
   // --- Visibility Check ---
   // If not alliance member, only Admin or their Guild Leader can see the profile
   if (!member.isAllianceMember) {
-    if (user?.role === "ADMIN") {
+    if (user?.role === "ADMIN" || user?.role === "ALLIANCE_LEADER") {
       // Allowed
     } else if (user?.role === "GUILD_LEADER" && member.subGuildId && user.subGuildIds?.includes(member.subGuildId)) {
       // Allowed

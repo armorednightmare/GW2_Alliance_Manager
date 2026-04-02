@@ -85,12 +85,22 @@ export function getMemberVisibilityFilter(user: AuthUser | null | undefined) {
     return {
       OR: [
         { isAllianceMember: true },
-        { subGuildId: { in: ids.length > 0 ? ids : ["none"] } }
+        { subGuildId: { in: ids.length > 0 ? ids : ["none"] } },
+        { status: "INACTIVE_LEFT" }
       ]
     };
   }
 
-  // 3. ALLIANCE_LEADERs, WEB_MEMBERs, and GUESTS only see actual Alliance members
+  if (user?.role === "ALLIANCE_LEADER") {
+    return {
+      OR: [
+        { isAllianceMember: true },
+        { status: "INACTIVE_LEFT" }
+      ]
+    };
+  }
+
+  // 3. WEB_MEMBERs and GUESTS only see actual Alliance members
   return { isAllianceMember: true };
 }
 

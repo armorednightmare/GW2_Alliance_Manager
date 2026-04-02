@@ -8,6 +8,9 @@ import { prisma } from "@/lib/prisma";
 
 const inter = Inter({ subsets: ["latin"] });
 
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "./api/auth/[...nextauth]/route";
+
 export const metadata: Metadata = {
   title: "GW2 Alliance Manager",
   description: "Alliance & WvW Management Tool for Guild Wars 2",
@@ -18,6 +21,8 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const session = await getServerSession(authOptions) as any;
+  
   let settings = null;
   try {
     settings = await prisma.systemSettings.findFirst();
@@ -44,7 +49,7 @@ export default async function RootLayout({
           <div className="app-wrapper">
             <Header allianceName={allianceName} logoUrl={logoUrl} />
             <div className="main-content">
-              <Sidebar />
+              {session && <Sidebar />}
               <main className="page-content">
                 {children}
               </main>
