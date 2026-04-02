@@ -125,7 +125,7 @@ export default function HistoryClient({ initialHistory, initialTotal }: { initia
             <tbody>
               {history.map((h: any) => (
                 <tr key={h.id} id={`hist-${h.id}`}>
-                  <td style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                  <td style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)" }} suppressHydrationWarning>
                     {new Date(h.createdAt).toLocaleString("de-DE")}
                   </td>
                   <td style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>

@@ -3,7 +3,7 @@ import Link from "next/link";
 import "./Dashboard.css";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "./api/auth/[...nextauth]/route";
-import { canSeeComments, getCommentEventFilter } from "@/lib/permissions";
+import { getHistoryVisibilityFilter } from "@/lib/permissions";
 
 export default async function Dashboard() {
   const activeMembersInDanger = await prisma.member.findMany({
@@ -23,7 +23,7 @@ export default async function Dashboard() {
 
   const session = await getServerSession(authOptions);
 
-  const historyWhere = getCommentEventFilter((session as any)?.user);
+  const historyWhere = await getHistoryVisibilityFilter((session as any)?.user);
 
 
   const recentHistory = await prisma.memberHistory.findMany({
@@ -50,8 +50,8 @@ export default async function Dashboard() {
 
       <div className="dashboard-grid">
         <div className="panels-column">
-          <div className="alert-panel">
-            <h2>⚠️ WvW Alarm ({activeMembersInDanger.length})</h2>
+          <div className={`alert-panel ${activeMembersInDanger.length === 0 ? 'success' : ''}`}>
+            <h2>{activeMembersInDanger.length === 0 ? '✅' : '⚠️'} WvW Alarm ({activeMembersInDanger.length})</h2>
             <p style={{ opacity: 0.8, marginBottom: '1rem' }}>
               Folgende Spieler sind aktuell in der <strong>Allianzgilde</strong>, haben diese aber <strong>nicht</strong> als Kampfgilde markiert.
             </p>
@@ -84,7 +84,7 @@ export default async function Dashboard() {
                   href={`/history#hist-${h.id}`}
                   style={{ display: "flex", alignItems: "center", width: "100%", padding: "0.8rem", color: "inherit", textDecoration: "none" }}
                 >
-                  <span className="time" style={{ marginRight: '1rem', opacity: 0.7 }}>{h.createdAt.toLocaleTimeString('de-DE')}</span>
+                  <span className="time" style={{ marginRight: '1rem', opacity: 0.7 }} suppressHydrationWarning>{h.createdAt.toLocaleTimeString('de-DE')}</span>
                   <span className="event">{h.member.accountName} ➔ {h.eventType.replace(/_/g, ' ')}</span>
                 </Link>
               </li>

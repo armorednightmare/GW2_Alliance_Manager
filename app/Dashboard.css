@@ -67,6 +67,17 @@
   text-shadow: 0 0 10px rgba(255, 76, 76, 0.4);
 }
 
+.alert-panel.success {
+  background: rgba(39, 174, 96, 0.05);
+  border-color: rgba(39, 174, 96, 0.3);
+  box-shadow: 0 0 15px rgba(39, 174, 96, 0.1);
+}
+
+.alert-panel.success h2 {
+  color: #2ecc71;
+  text-shadow: 0 0 10px rgba(39, 174, 96, 0.3);
+}
+
 .danger-list {
   list-style: none;
   padding: 0;

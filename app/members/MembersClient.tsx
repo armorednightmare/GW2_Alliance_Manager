@@ -108,7 +108,7 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
               <th onClick={() => handleSort("status")} style={{cursor:"pointer"}}>Status <SortIcon field="status" /></th>
               <th onClick={() => handleSort("guildtag")} style={{cursor:"pointer"}}>Gilde <SortIcon field="guildtag" /></th>
               <th onClick={() => handleSort("rank")} style={{cursor:"pointer"}}>Rang <SortIcon field="rank" /></th>
-              <th onClick={() => handleSort("wvwMember")} style={{cursor:"pointer"}}>Kampfgilde <SortIcon field="wvwMember" /></th>
+              <th onClick={() => handleSort("wvwMember")} style={{cursor:"pointer"}}>WvW Vertreten <SortIcon field="wvwMember" /></th>
               <th onClick={() => handleSort("isAllianceMember")} style={{cursor:"pointer"}}>Allianz <SortIcon field="isAllianceMember" /></th>
               <th onClick={() => handleSort("manualRole")} style={{cursor:"pointer"}}>Rollen <SortIcon field="manualRole" /></th>
               <th>Aktionen</th>

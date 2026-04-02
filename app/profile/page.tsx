@@ -116,7 +116,7 @@ export default async function ProfilePage() {
               {member.history.map((item: any) => (
 
                 <li key={item.id} style={{ marginBottom: '1rem', borderLeft: '2px solid var(--accent-color)', paddingLeft: '1rem', fontSize: '0.9rem' }}>
-                  <div style={{ fontSize: '0.75rem', opacity: 0.6 }}>{item.createdAt.toLocaleString('de-DE')}</div>
+                  <div style={{ fontSize: '0.75rem', opacity: 0.6 }} suppressHydrationWarning>{item.createdAt.toLocaleString('de-DE')}</div>
                   <strong>{item.eventType.replace(/_/g, ' ')}</strong>
                   {item.newValue && <div style={{ opacity: 0.8, fontSize: '0.85rem' }}>➔ {item.newValue}</div>}
                 </li>

@@ -66,7 +66,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
           <p><strong>Gilde:</strong> {displayGuild ? `${displayGuild.name} [${displayGuild.tag}]` : 'Keine'}</p>
           <p><strong>Rang:</strong> {displayRank}</p>
 
-          <p><strong>WvW Gilde:</strong> {member.wvwMember ? 'Ja' : 'Nein'}</p>
+          <p><strong>WvW Vertreten:</strong> {member.wvwMember ? 'Ja' : 'Nein'}</p>
           <p><strong>Allianz Mitglied:</strong> {member.isAllianceMember ? 'Ja' : 'Nein'}</p>
           {member.invitedBy && <p><strong>Eingeladen von:</strong> {member.invitedBy}</p>}
 
@@ -157,7 +157,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
               .map((item: any) => (
 
                 <li key={item.id} style={{ marginBottom: '1rem', borderLeft: '2px solid var(--accent-color)', paddingLeft: '1rem' }}>
-                  <div style={{ fontSize: '0.8rem', opacity: 0.7 }}>{item.createdAt.toLocaleString('de-DE')}</div>
+                  <div style={{ fontSize: '0.8rem', opacity: 0.7 }} suppressHydrationWarning>{item.createdAt.toLocaleString('de-DE')}</div>
                   <strong style={{ fontSize: '0.85rem', color: 'var(--accent-color)' }}>{item.eventType.replace(/_/g, ' ')}</strong>
                   {item.oldValue || item.newValue ? (
                     <div style={{ marginTop: '0.2rem', fontSize: '0.9rem' }}>

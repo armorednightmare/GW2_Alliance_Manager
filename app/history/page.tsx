@@ -3,14 +3,13 @@ import HistoryClient from "./HistoryClient";
 import "../members/Members.css";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../api/auth/[...nextauth]/route";
-import { getCommentEventFilter } from "@/lib/permissions";
-
+import { getHistoryVisibilityFilter } from "@/lib/permissions";
 
 export default async function HistoryPage() {
   const limit = 50;
   const session = await getServerSession(authOptions);
 
-  const where = getCommentEventFilter((session as any)?.user);
+  const where = await getHistoryVisibilityFilter((session as any)?.user);
 
 
 

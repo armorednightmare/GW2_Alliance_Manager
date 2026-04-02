@@ -32,33 +32,62 @@ export function canSeeComments(user: AuthUser | null | undefined): boolean {
   return !!user && (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER" || user.role === "GUILD_LEADER");
 }
 
-export function getCommentEventFilter(user: AuthUser | null | undefined) {
+export async function getCommentEventFilter(user: AuthUser | null | undefined) {
+  return await getHistoryVisibilityFilter(user);
+}
+
+/**
+ * Returns a Prisma filter for MemberHistory visibility based on user role.
+ * Guild Leaders are restricted to their own members.
+ * Web members/guests see nothing in the global history.
+ */
+export async function getHistoryVisibilityFilter(user: AuthUser | null | undefined) {
   if (!user || user.role === "WEB_MEMBER") {
-    return { NOT: { eventType: { in: ["COMMENT_ADDED", "COMMENT_CHANGED"] } } };
+    // Web members/guests don't see any global history
+    return { id: "none" };
   }
 
   if (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER") {
+    // Alliance staff sees everything
     return {};
   }
 
   if (user.role === "GUILD_LEADER") {
     const ids = user.subGuildIds || [];
-    if (ids.length === 0) {
-      return { NOT: { eventType: { in: ["COMMENT_ADDED", "COMMENT_CHANGED"] } } };
-    }
-    // We must type assert this to any because Prisma's where types can get complicated
+    if (ids.length === 0) return { id: "none" };
+    
+    // Fetch names of alliance guilds to identify alliance-wide events
+    const { prisma } = await import("./prisma");
+    const allianceGuilds = await prisma.guild.findMany({ where: { isAllianceGuild: true } });
+    const allianceNames = allianceGuilds.map(g => `${g.name} [${g.tag}]`);
+
+    // Guild Leaders see:
+    // 1. ALL events for their managed sub-guild members
+    // 2. ONLY Alliance-wide events (Rank, WvW status, Join/Leave alliance) for others
     return {
       OR: [
-        { NOT: { eventType: { in: ["COMMENT_ADDED", "COMMENT_CHANGED"] } } },
+        // Rule 1: Own managed guilds (see everything)
+        { member: { subGuildId: { in: ids } } },
+        
+        // Rule 2: Alliance-wide events for others (exclude comments)
         {
-          eventType: { in: ["COMMENT_ADDED", "COMMENT_CHANGED"] },
-          member: { subGuildId: { in: ids } }
+          AND: [
+            { member: { OR: [ { isAllianceMember: true }, { status: "INACTIVE_LEFT" } ] } },
+            { NOT: { eventType: { in: ["COMMENT_ADDED", "COMMENT_CHANGED"] } } },
+            {
+              OR: [
+                { eventType: { in: ["RANK_CHANGE", "WVW_STATUS_CHANGE"] } }, // General alliance status
+                { oldValue: { in: allianceNames } }, // Left Alliance Guild
+                { newValue: { in: allianceNames } }  // Joined Alliance Guild
+              ]
+            }
+          ]
         }
       ]
     } as any;
   }
 
-  return { NOT: { eventType: { in: ["COMMENT_ADDED", "COMMENT_CHANGED"] } } };
+  return { id: "none" };
 }
 
 

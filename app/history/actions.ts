@@ -2,7 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "../api/auth/[...nextauth]/route";
-import { getCommentEventFilter } from "@/lib/permissions";
+import { getHistoryVisibilityFilter } from "@/lib/permissions";
 
 
 export async function fetchHistoryLogs(page: number, limit: number, search: string) {
@@ -28,11 +28,11 @@ export async function fetchHistoryLogs(page: number, limit: number, search: stri
   }
 
   const session = await getServerSession(authOptions);
-  const commentFilter = getCommentEventFilter((session as any)?.user);
+  const historyFilter = await getHistoryVisibilityFilter((session as any)?.user);
 
 
   const finalWhere = {
-    AND: [whereClause, commentFilter]
+    AND: [whereClause, historyFilter]
   };
 
   const [data, total] = await Promise.all([
