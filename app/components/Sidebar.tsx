@@ -2,7 +2,7 @@ import Link from "next/link";
 import "./Sidebar.css";
 // import server session to check role
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 
 export default async function Sidebar(): Promise<JSX.Element> {
   const session = await getServerSession(authOptions) as any;

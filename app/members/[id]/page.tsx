@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { updateMemberComment } from "./actions";
 import { getUserDiscordRoles } from "@/lib/discord";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import { canEditMember, AuthUser } from "@/lib/permissions";
 
 

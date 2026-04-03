@@ -1,10 +1,11 @@
 "use server";
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth";
-import { authOptions } from "../api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
+import { AuthUser } from "@/lib/permissions";
 
 export async function verifyAndLinkApiKey(apiKey: string) {
-  const session = await getServerSession(authOptions);
+  const session = (await getServerSession(authOptions)) as { user: AuthUser } | null;
   if (!session?.user?.id) return { success: false, error: "Not logged in" };
 
   try {
@@ -36,7 +37,7 @@ export async function verifyAndLinkApiKey(apiKey: string) {
 }
 
 export async function unlinkAccount() {
-  const session = await getServerSession(authOptions);
+  const session = (await getServerSession(authOptions)) as { user: AuthUser } | null;
   if (!session?.user?.id) return;
 
   await prisma.user.update({

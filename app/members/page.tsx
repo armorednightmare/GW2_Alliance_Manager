@@ -1,7 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import MembersClient from "./MembersClient";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 import Link from "next/link";
 import { getMemberVisibilityFilter, AuthUser } from "@/lib/permissions";
 

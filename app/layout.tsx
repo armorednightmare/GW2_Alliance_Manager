@@ -9,7 +9,7 @@ import { prisma } from "@/lib/prisma";
 const inter = Inter({ subsets: ["latin"] });
 
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "./api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: "GW2 Alliance Manager",

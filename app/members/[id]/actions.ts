@@ -2,11 +2,11 @@
 import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "../../api/auth/[...nextauth]/route";
-import { canEditMember } from "@/lib/permissions";
+import { authOptions } from "@/lib/auth";
+import { canEditMember, AuthUser } from "@/lib/permissions";
 
 export async function updateMemberComment(data: FormData) {
-  const session = await getServerSession(authOptions);
+  const session = (await getServerSession(authOptions)) as { user: AuthUser } | null;
   const memberId = data.get("memberId") as string;
   const comment = data.get("comment") as string;
   const manualRole = data.get("manualRole") as string;
