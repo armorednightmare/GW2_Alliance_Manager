@@ -24,12 +24,16 @@ Dieser Guide erklärt Schritt für Schritt, wie Sie den **GW2 Alliance Manager**
 
 ## ⚙️ Schritt 3: Umgebungsvariablen (Variables) konfigurieren
 
-Gehen Sie in den **Variables**-Tab Ihres Web-Services auf Railway und fügen Sie folgende Variablen hinzu:
+Gehen Sie in den **Variables**-Tab Ihres Web-Services auf Railway und fügen Sie folgende Variablen hinzu. **Wichtig:** Kopieren Sie hier keine Werte aus Ihrer lokalen `.env`-Datei für die Datenbank, da diese nur für Docker-Compose lokal gültig sind!
 
 ### 📡 System & Netzwerke
-- `DATABASE_URL`: Klicken Sie auf **Add Variable** -> **Reference Service Variable** und wählen Sie die Variable der PostgreSQL-Datenbank aus (meist `TCP_URL`).
-- `NEXTAUTH_URL`: Die URL Ihrer Railway-App (z. B. `https://gw2-alliance-manager-production.up.railway.app`).
-- `NEXTAUTH_SECRET`: Ein zufälliger, geheimer String (z. B. generiert mit `openssl rand -base64 32`).
+- `DATABASE_URL`: 
+  1. Klicken Sie auf **+ New Variable** -> **Reference**.
+  2. Wählen Sie den PostgreSQL-Service aus.
+  3. Wählen Sie `DATABASE_URL` aus (meist wird dies als `${{PostgreSQL.DATABASE_URL}}` angezeigt).
+  *Hinweis: Dies stellt sicher, dass die App die interne Railway-Verbindung nutzt anstatt "db:5432" zu versuchen.*
+- `NEXTAUTH_URL`: Die URL Ihrer Railway-App (z. B. `https://gw2-manager.up.railway.app`). Muss mit dem Pfad übereinstimmen, den Sie im Browser aufrufen.
+- `NEXTAUTH_SECRET`: Ein zufälliger, geheimer String (generiert mit `openssl rand -base64 32`).
 
 ### 🔑 OAuth (Optional, für Discord/Google Login)
 - `DISCORD_CLIENT_ID`: (Vom Discord Developer Portal)
@@ -44,13 +48,28 @@ Gehen Sie in den **Variables**-Tab Ihres Web-Services auf Railway und fügen Sie
 Da wir das im Repository enthaltene **Dockerfile** nutzen, kümmert sich Railway um fast alles:
 
 1. **Build Process**: Railway erkennt das `Dockerfile`, installiert die Abhängigkeiten, generiert den Prisma-Client und baut die Next.js App (`next build`).
-2. **Start Process**: Nach dem Build führt der Container automatisch folgende Befehle aus:
-   - `npx prisma migrate deploy`: Aktualisiert das Datenbank-Schema.
-   - `(npx tsx cron.ts &)`: Startet den automatischen Roster-Sync im Hintergrund.
-   - `node server.js`: Startet die Web-Anwendung (optimiert).
+2. **Start Process**: Nach dem Build führt der Container eine intelligente Start-Logik aus:
+   - **Prisma Initialisierung**: Das System prüft, ob Migrations-Dateien vorhanden sind.
+     - Wenn **keine** Migrationen existieren (Initial-Phase): Führt `npx prisma db push` aus.
+     - Wenn Migrationen existieren (Produktions-Phase): Führt `npx prisma migrate deploy` aus.
+   - **(npx tsx cron.ts &)**: Startet den automatischen Roster-Sync im Hintergrund.
+   - **node server.js**: Startet die Web-Anwendung.
 
 > [!IMPORTANT]
 > Sollte der Build fehlschlagen, stellen Sie sicher, dass in den Railway-Settings **Docker** als Build-Typ ausgewählt ist und nicht Nixpacks (Standard).
+
+---
+
+## 🛠️ Troubleshooting
+
+### ❌ Fehler `P1001: Can't reach database server`
+- **Lösung**: Überprüfen Sie Ihre `DATABASE_URL` in den Railway-Variables. Nutzen Sie die **Reference**-Funktion (siehe Schritt 3).
+
+### ❌ Fehler `Cannot find module './lib/prisma'` (Cron)
+- **Lösung**: Dieser Fehler wurde behoben, indem der `lib`-Ordner nun explizit in das Docker-Image kopiert wird. Stellen Sie sicher, dass Sie den neuesten Stand deployt haben.
+
+### ❌ Fehler `Table public.Guild does not exist`
+- **Lösung**: Dieser Fehler tritt auf, wenn die Datenbank noch nicht initialisiert wurde. Die neue Start-Logik (Schritt 4) behebt dies automatisch durch den `db push` Fallback.
 
 ---
 

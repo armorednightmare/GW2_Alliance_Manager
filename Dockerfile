@@ -39,6 +39,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
 # Copy cron task and tsx-related dependencies
 COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/cron.ts ./
+COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
 
 USER nextjs
@@ -47,5 +48,5 @@ EXPOSE 3000
 ENV PORT 3000
 ENV HOSTNAME "0.0.0.0"
 
-# Note: We run migrations and start both cron and server.
-CMD ["sh", "-c", "npx prisma migrate deploy && (npx tsx cron.ts &) && node server.js"]
+# Note: Intelligent Startup Logic (db push if no migrations, otherwise migrate deploy)
+CMD ["sh", "-c", "if [ -d \"prisma/migrations\" ] && [ \"$(ls -A prisma/migrations 2>/dev/null)\" ]; then npx prisma migrate deploy; else npx prisma db push --accept-data-loss; fi && (npx tsx cron.ts &) && node server.js"]
