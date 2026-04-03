@@ -1,112 +1,73 @@
-# Deployment Guide - Externes Hosting
+# Deployment Guide: Railway (Hosting & Konfiguration)
 
-Dieser Guide beschreibt die notwendigen Schritte, um den **GW2 Alliance Manager** auf einem externen Server (VPS, Dedicated Server) produktiv zu betreiben.
+Dieser Guide erklärt Schritt für Schritt, wie Sie den **GW2 Alliance Manager** auf [Railway](https://railway.app/) hosten und konfigurieren. Wir nutzen hierfür ein optimiertes **Dockerfile**, um maximale Stabilität zu gewährleisten.
 
-## 🔑 1. Umgebungsvariablen für Produktion
+## 📋 Voraussetzungen
 
-Beim Wechsel von `localhost` auf eine echte Domain müssen in der `.env`-Datei folgende Variablen angepasst werden:
-
-```env
-# Die volle URL deiner Live-Instanz (WICHTIG für NextAuth)
-NEXTAUTH_URL="https://allianz.deinedomain.com"
-
-# Eine sichere, zufällige Zeichenfolge für Verschlüsselung
-NEXTAUTH_SECRET="dein-langes-geheimes-passwort"
-
-# Die Datenbank-URL (falls DB extern ist, sonst bleibt 'db' bei Docker)
-DATABASE_URL="postgresql://user:pass@db:5432/gw2alliance"
-```
+- Ein **Railway-Account**.
+- Das Repository auf Ihrem **GitHub-Account**.
+- Ein GW2 API-Key für die Initialisierung der Allianz.
 
 ---
 
-## 🌐 2. OAuth-Konfiguration (Discord & Google) - **OPTIONAL**
+## 🚀 Schritt 1: Datenbank (PostgreSQL) erstellen
 
-Falls Sie den Login über externe Anbieter ermöglichen möchten, müssen die **Callback-URLs** in den jeweiligen Developer-Portalen korrekt hinterlegt sein. Eine detaillierte Schritt-für-Schritt-Anleitung dazu finden Sie im **[OAuth Setup Guide](OAUTH_SETUP.md)**.
+1. Loggen Sie sich bei Railway ein und erstellen Sie ein **New Project**.
+2. Wählen Sie **Provision PostgreSQL** aus.
+3. Railway erstellt nun eine leere PostgreSQL-Instanz.
 
-### Discord Developer Portal:
-- Navigiere zu deiner App -> `OAuth2` -> `Redirects`.
-- Füge folgende URL hinzu: `https://allianz.deinedomain.com/api/auth/callback/discord`
+## 🔑 Schritt 2: Anwendung (GitHub Repo) hinzufügen
 
-### Google Cloud Console:
-- Navigiere zu `APIs & Services` -> `Credentials`.
-- Füge unter "Authorized redirect URIs" hinzu: `https://allianz.deinedomain.com/api/auth/callback/google`
+1. Klicken Sie auf **+ New** -> **GitHub Repo**.
+2. Wählen Sie Ihr Repository `gw2-alliance-manager` aus.
+3. Railway erkennt nun automatisch das **Dockerfile** im Root-Verzeichnis.
 
----
+## ⚙️ Schritt 3: Umgebungsvariablen (Variables) konfigurieren
 
-## 🏗 3. Reverse Proxy (Nginx Beispiel)
+Gehen Sie in den **Variables**-Tab Ihres Web-Services auf Railway und fügen Sie folgende Variablen hinzu:
 
-Da Next.js standardmäßig auf Port 3000 läuft, empfiehlt sich ein Reverse Proxy wie **Nginx**, um HTTPS (Port 443) zu verwalten und Anfragen an den Docker-Container weiterzureichen.
+### 📡 System & Netzwerke
+- `DATABASE_URL`: Klicken Sie auf **Add Variable** -> **Reference Service Variable** und wählen Sie die Variable der PostgreSQL-Datenbank aus (meist `TCP_URL`).
+- `NEXTAUTH_URL`: Die URL Ihrer Railway-App (z. B. `https://gw2-alliance-manager-production.up.railway.app`).
+- `NEXTAUTH_SECRET`: Ein zufälliger, geheimer String (z. B. generiert mit `openssl rand -base64 32`).
 
-### Beispiel Konfiguration (`/etc/nginx/sites-available/allianz`):
-```nginx
-server {
-    server_name allianz.deinedomain.com;
-
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_cache_bypass $http_upgrade;
-        
-        # Wichtig für NextAuth hinter Proxy
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
-
-    listen 443 ssl; # verwaltet durch Certbot / Let's Encrypt
-    ssl_certificate /etc/letsencrypt/live/allianz.deinedomain.com/fullchain.pem;
-    ssl_certificate_key /etc/letsencrypt/live/allianz.deinedomain.com/privkey.pem;
-}
-
-server {
-    if ($host = allianz.deinedomain.com) {
-        return 301 https://$host$request_uri;
-    }
-    listen 80;
-    server_name allianz.deinedomain.com;
-    return 404;
-}
-```
+### 🔑 OAuth (Optional, für Discord/Google Login)
+- `DISCORD_CLIENT_ID`: (Vom Discord Developer Portal)
+- `DISCORD_CLIENT_SECRET`: (Vom Discord Developer Portal)
+- `GOOGLE_CLIENT_ID`: (Von Google Cloud Console)
+- `GOOGLE_CLIENT_SECRET`: (Von Google Cloud Console)
 
 ---
 
-## 📦 4. Docker für Produktion nutzen
+## 🛠️ Schritt 4: Build & Deployment
 
-Für die Produktion solltest du ein optimiertes `Dockerfile` verwenden. Da aktuell nur ein `Dockerfile.dev` existiert, hier die Empfehlung für den produktiven Betrieb:
+Da wir das im Repository enthaltene **Dockerfile** nutzen, kümmert sich Railway um fast alles:
 
-### Empfohlenes Produktions-Setup (`docker-compose.yml` Anpassung):
-Stelle sicher, dass der Container mit dem `node:18-alpine` Image läuft und der Build-Prozess `next build` ausführt.
-
-```bash
-# Baue das Image und starte die Container im Hintergrund
-docker-compose up -d --build
-```
-
-**Wichtig:** Nach jedem Update des Codes auf dem Server muss der Build-Prozess erneut durchlaufen werden:
-```bash
-git pull
-docker-compose restart web
-```
-
----
-
-## 💾 5. Datenbank & Backups
-
-Wenn du die Datenbank im Docker-Container lässt, stelle sicher, dass das Volume persistent ist:
-
-```yaml
-volumes:
-  - postgres_data:/var/lib/postgresql/data
-```
-
-**Backup-Empfehlung:** Erstelle regelmäßige SQL-Dumps deiner Datenbank:
-```bash
-docker exec -t gw2_alliance_manager-db-1 pg_dumpall -c -U postgres > backup_$(date +%F).sql
-```
-
----
+1. **Build Process**: Railway erkennt das `Dockerfile`, installiert die Abhängigkeiten, generiert den Prisma-Client und baut die Next.js App (`next build`).
+2. **Start Process**: Nach dem Build führt der Container automatisch folgende Befehle aus:
+   - `npx prisma migrate deploy`: Aktualisiert das Datenbank-Schema.
+   - `(npx tsx cron.ts &)`: Startet den automatischen Roster-Sync im Hintergrund.
+   - `node server.js`: Startet die Web-Anwendung (optimiert).
 
 > [!IMPORTANT]
-> **HTTPS ist Pflicht!** NextAuth und Google/Discord OAuth funktionieren aus Sicherheitsgründen auf externen Servern ausschließlich über eine verschlüsselte HTTPS-Verbindung. Nutze `Certbot` für kostenlose Zertifikate.
+> Sollte der Build fehlschlagen, stellen Sie sicher, dass in den Railway-Settings **Docker** als Build-Typ ausgewählt ist und nicht Nixpacks (Standard).
+
+---
+
+## ⏰ Schritt 5: Automatischer Sync (Cron)
+
+Die Anwendung nutzt eine `cron.ts` Datei, um die Gilden-Roster regelmäßig zu synchronisieren.
+
+- Durch die Konfiguration im `Dockerfile` startet dieser Prozess automatisch im Hintergrund der Web-App.
+- **Wichtig**: Railway Services "schlafen" manchmal (im Free Tier), wenn sie nicht genutzt werden. Der Hintergrundprozess stoppt dann ebenfalls. Für kritische Anwendungen empfiehlt sich ein dauerhafter Service ("Always On").
+
+---
+
+## ✅ Überprüfung
+
+Wenn alles fertig ist:
+1. Öffnen Sie die URL Ihrer Anwendung.
+2. Der erste registrierte Nutzer sollte in der PostgreSQL-Datenbank (via Railway Data-Tab) als `ADMIN` gesetzt werden.
+
+> [!CAUTION]
+> Geben Sie niemals Ihre `DATABASE_URL` oder `NEXTAUTH_SECRET` an Dritte weiter!
