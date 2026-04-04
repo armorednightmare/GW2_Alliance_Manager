@@ -5,8 +5,11 @@ import "../members/Members.css"; // Reuse styling for data tables
 export default async function GuildsPage() {
   const guilds = await prisma.guild.findMany({
     include: { 
-      members: true,
-      subGuildMembers: true 
+      members: {
+        include: {
+          member: true
+        }
+      }
     },
     orderBy: [
       { isAllianceGuild: 'desc' },
@@ -16,13 +19,10 @@ export default async function GuildsPage() {
 
   // Calculate some stats per guild
   const guildsWithStats = guilds.map((g: any) => {
-    // Combine primary members and sub-guild members to get all players associated with this guild
-    const allMembers = [...g.members, ...g.subGuildMembers];
-    
-    // Deduplicate in case a member is somehow in both (unlikely but safe)
-    const uniqueMembers = Array.from(new Map(allMembers.map(m => [m.id, m])).values());
+    // Collect all associated members (from MemberGuild records)
+    const allMembers = g.members.map((mg: any) => mg.member);
 
-    const activeMembers = uniqueMembers.filter((m: any) => m.status === 'ACTIVE');
+    const activeMembers = allMembers.filter((m: any) => m.status === 'ACTIVE');
     const wvwMembers = activeMembers.filter((m: any) => m.wvwMember);
     return {
       id: g.id,

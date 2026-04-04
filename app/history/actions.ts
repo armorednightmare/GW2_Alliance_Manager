@@ -38,7 +38,7 @@ export async function fetchHistoryLogs(page: number, limit: number, search: stri
   const [data, total] = await Promise.all([
     prisma.memberHistory.findMany({
       where: finalWhere,
-      include: { member: { include: { guild: true } } },
+      include: { member: { include: { guilds: { include: { guild: true } } } } },
       orderBy: { createdAt: "desc" },
       skip,
       take: limit,

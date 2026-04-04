@@ -8,7 +8,7 @@ import { getHistoryVisibilityFilter } from "@/lib/permissions";
 export default async function Dashboard() {
   const activeMembersInDanger = await prisma.member.findMany({
     where: { isAllianceMember: true, wvwMember: false, status: "ACTIVE" },
-    include: { guild: true, subGuild: true }
+    include: { guilds: { include: { guild: true } } }
   });
 
   const totalMembers = await prisma.member.count({ where: { status: "ACTIVE", isAllianceMember: true } });
@@ -64,12 +64,11 @@ export default async function Dashboard() {
                   <li key={m.id}>
                     <strong>{m.accountName}</strong>
                     <span className="guild-tag">
-                      {m.subGuild ? `${m.subGuild.name} [${m.subGuild.tag}]` : (m.guild ? `${m.guild.name} [${m.guild.tag}]` : '')}
+                      {m.guilds?.map((mg: any) => `[${mg.guild.tag}]`).join(' ')}
                     </span>
                     <Link href={`/members/${m.id}`} className="btn-small">Profil</Link>
                   </li>
                 ))}
-
               </ul>
             )}
           </div>

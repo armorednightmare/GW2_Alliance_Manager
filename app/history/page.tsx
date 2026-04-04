@@ -16,7 +16,7 @@ export default async function HistoryPage() {
   const [history, initialTotal] = await Promise.all([
     prisma.memberHistory.findMany({
       where,
-      include: { member: { include: { guild: true } } },
+      include: { member: { include: { guilds: { include: { guild: true } } } } },
       orderBy: { createdAt: 'desc' },
       take: limit
     }),

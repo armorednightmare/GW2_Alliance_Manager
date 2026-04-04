@@ -17,14 +17,11 @@ interface GW2LogEntry {
 }
 
 export async function syncAllGuildRosters() {
-  // Sort so Alliance Guilds are processed LAST.
-  // This ensures that the primary 'guildId' points to the Alliance Guild for members in both.
   const guilds = await prisma.guild.findMany({
     where: { leaderToken: { not: null } },
-    orderBy: { isAllianceGuild: 'asc' } 
   });
 
-  const logs = [];
+  const syncLogs: string[] = [];
 
   for (const guild of guilds) {
     if (!guild.leaderToken) continue;
@@ -34,132 +31,134 @@ export async function syncAllGuildRosters() {
       const rosterRes = await fetch(`https://api.guildwars2.com/v2/guild/${guild.id}/members?access_token=${guild.leaderToken}`);
       if (!rosterRes.ok) {
         console.error(`Failed to fetch roster for guild ${guild.name} (${guild.id})`);
-      } else {
-        const apiMembers: GW2Member[] = await rosterRes.json();
-        const apiMemberMap = new Map(apiMembers.map(m => [m.name, m]));
+        continue;
+      }
+      const apiMembers: GW2Member[] = await rosterRes.json();
+      const apiMemberMap = new Map(apiMembers.map(m => [m.name, m]));
 
-        // Check current database members who are already associated with THIS guild
-        const currentDbMembers = await prisma.member.findMany({ 
-          where: { 
-            OR: [
-              { guildId: guild.id },
-              { subGuildId: guild.id }
-            ]
-          } 
+      // 2. Fetch Logs (to find invite info)
+      const logsRes = await fetch(`https://api.guildwars2.com/v2/guild/${guild.id}/log?access_token=${guild.leaderToken}`);
+      const inviterMap = new Map<string, string>();
+      if (logsRes.ok) {
+        const logs: GW2LogEntry[] = await logsRes.json();
+        // Process logs from oldest to newest so newest invite takes precedence if multiple exist
+        logs.reverse().forEach(log => {
+          if (log.type === 'invited' && log.user && log.invited_by) {
+            inviterMap.set(log.user, log.invited_by);
+          }
         });
+      }
 
-        for (const dbMember of currentDbMembers) {
-          const apiData = apiMemberMap.get(dbMember.accountName);
-          if (!apiData) {
-            // Member left THIS guild.
-            const updateData: any = {};
-            if (dbMember.guildId === guild.id) {
-              updateData.status = "INACTIVE_LEFT";
-              updateData.guildId = null;
-            }
-            if (dbMember.subGuildId === guild.id) {
-              updateData.subGuildId = null;
-            }
+      // 3. Process existing database memberships for THIS guild
+      const currentDbMemberships = await prisma.memberGuild.findMany({
+        where: { guildId: guild.id },
+        include: { member: true }
+      });
 
-            if (guild.isAllianceGuild) {
-              updateData.isAllianceMember = false;
-              updateData.wvwMember = false;
-            }
-            
-            await prisma.member.update({ where: { id: dbMember.id }, data: updateData });
-            
+      for (const membership of currentDbMemberships) {
+        const apiData = apiMemberMap.get(membership.member.accountName);
+        if (!apiData) {
+          // Member left THIS specific guild
+          await prisma.memberGuild.delete({
+            where: { id: membership.id }
+          });
+
+          await prisma.memberHistory.create({
+            data: { memberId: membership.memberId, eventType: "LEFT", newValue: `${guild.name} [${guild.tag}]` }
+          });
+          syncLogs.push(`${membership.member.accountName} left ${guild.name} [${guild.tag}]`);
+
+          // If no memberships left anywhere, mark as INACTIVE_LEFT
+          const remaining = await prisma.memberGuild.count({ where: { memberId: membership.memberId } });
+          if (remaining === 0) {
+            await prisma.member.update({
+              where: { id: membership.memberId },
+              data: { status: "INACTIVE_LEFT", isAllianceMember: false, wvwMember: false }
+            });
+          }
+        } else {
+          // Still in this guild - Check for rank changes
+          if (membership.rank !== apiData.rank) {
+            await prisma.memberGuild.update({
+              where: { id: membership.id },
+              data: { rank: apiData.rank, lastSeenAt: new Date() }
+            });
             await prisma.memberHistory.create({
-              data: { memberId: dbMember.id, eventType: "LEFT", oldValue: `${guild.name} [${guild.tag}]` }
-            });
-            logs.push(`${dbMember.accountName} left ${guild.name} [${guild.tag}]`);
-          } else {
-            // Still in this guild
-            const dataToUpdate: any = { lastSeenAt: new Date(), status: "ACTIVE" };
-            
-            // If it's the primary guild, update rank
-            if (dbMember.guildId === guild.id && dbMember.rank !== apiData.rank) {
-              dataToUpdate.rank = apiData.rank;
-              await prisma.memberHistory.create({
-                data: { memberId: dbMember.id, eventType: "RANK_CHANGE", oldValue: dbMember.rank, newValue: apiData.rank }
-              });
-            }
-
-            if (guild.isAllianceGuild) {
-              dataToUpdate.isAllianceMember = true;
-              dataToUpdate.guildId = guild.id; // Ensure Frog is primary if processed last
-              if (dbMember.wvwMember !== apiData.wvw_member) {
-                dataToUpdate.wvwMember = apiData.wvw_member;
-                await prisma.memberHistory.create({
-                  data: { memberId: dbMember.id, eventType: "WVW_STATUS_CHANGE", oldValue: String(dbMember.wvwMember), newValue: String(apiData.wvw_member) }
-                });
-              }
-            } else {
-              // It's a sub-guild
-              dataToUpdate.subGuildId = guild.id;
-              // If they have no primary guild yet, set this as primary too
-              if (!dbMember.guildId) {
-                dataToUpdate.guildId = guild.id;
-                dataToUpdate.rank = apiData.rank;
-              }
-            }
-            
-            await prisma.member.update({ where: { id: dbMember.id }, data: dataToUpdate });
-          }
-        }
-
-        // --- Process API members (not currently linked to this guild in DB) ---
-        for (const apiData of apiMembers) {
-          if (currentDbMembers.find(m => m.accountName === apiData.name)) continue;
-
-          const globalExists = await prisma.member.findUnique({ where: { accountName: apiData.name } });
-          if (globalExists) {
-            const updateData: any = { status: "ACTIVE", lastSeenAt: new Date() };
-            
-            if (guild.isAllianceGuild) {
-              updateData.isAllianceMember = true;
-              updateData.wvwMember = apiData.wvw_member;
-              updateData.guildId = guild.id;
-              updateData.rank = apiData.rank;
-            } else {
-              updateData.subGuildId = guild.id;
-              if (!globalExists.guildId) {
-                updateData.guildId = guild.id;
-                updateData.rank = apiData.rank;
-              }
-            }
-
-            await prisma.member.update({ where: { id: globalExists.id }, data: updateData });
-            
-            if (globalExists.status !== "ACTIVE") {
-              await prisma.memberHistory.create({
-                data: { memberId: globalExists.id, eventType: "JOINED", newValue: `${guild.name} [${guild.tag}]`, createdAt: new Date(apiData.joined) }
-              });
-            }
-          } else {
-            // Brand new member
-            await prisma.member.create({
-              data: {
-                accountName: apiData.name,
-                guildId: guild.id,
-                subGuildId: guild.isAllianceGuild ? null : guild.id,
-                status: "ACTIVE",
-                rank: apiData.rank,
-                wvwMember: guild.isAllianceGuild ? apiData.wvw_member : false,
-                isAllianceMember: guild.isAllianceGuild,
-                joinedAt: new Date(apiData.joined),
-                lastSeenAt: new Date()
+              data: { 
+                memberId: membership.memberId, 
+                eventType: "RANK_CHANGE", 
+                oldValue: `${membership.rank} (${guild.tag})`, 
+                newValue: `${apiData.rank} (${guild.tag})` 
               }
             });
-            // History entry omitted for brevity in create if joining fresh
+          } else {
+            await prisma.memberGuild.update({
+              where: { id: membership.id },
+              data: { lastSeenAt: new Date() }
+            });
           }
+
+          // Update global member status
+          const updateData: any = { status: "ACTIVE", lastSeenAt: new Date() };
+          if (guild.isAllianceGuild) {
+            updateData.isAllianceMember = true;
+            updateData.wvwMember = apiData.wvw_member;
+          }
+          await prisma.member.update({ where: { id: membership.memberId }, data: updateData });
         }
       }
 
-      // 2. Guild Logs stay the same... (omitted for brevity)
-    } catch (e) {
-      console.error(e);
+      // 4. Process API members (add new memberships)
+      for (const apiData of apiMembers) {
+        // Skip if they already have a membership record for this guild
+        if (currentDbMemberships.find(m => m.member.accountName === apiData.name)) continue;
+
+        // Find or Create the base member
+        const inviter = inviterMap.get(apiData.name);
+        const member = await prisma.member.upsert({
+          where: { accountName: apiData.name },
+          update: { 
+            status: "ACTIVE", 
+            lastSeenAt: new Date(),
+            ...(inviter ? { invitedBy: inviter } : {}),
+            ...(guild.isAllianceGuild ? { isAllianceMember: true, wvwMember: apiData.wvw_member } : {})
+          },
+          create: {
+            accountName: apiData.name,
+            status: "ACTIVE",
+            joinedAt: new Date(apiData.joined),
+            lastSeenAt: new Date(),
+            invitedBy: inviter || null,
+            isAllianceMember: guild.isAllianceGuild,
+            wvwMember: guild.isAllianceGuild ? apiData.wvw_member : false,
+          }
+        });
+
+        // Add the guild membership
+        await prisma.memberGuild.create({
+          data: {
+            memberId: member.id,
+            guildId: guild.id,
+            rank: apiData.rank,
+            lastSeenAt: new Date()
+          }
+        });
+
+        await prisma.memberHistory.create({
+          data: { 
+            memberId: member.id, 
+            eventType: "JOINED", 
+            newValue: `${guild.name} [${guild.tag}]`,
+            createdAt: new Date(apiData.joined)
+          }
+        });
+        syncLogs.push(`${apiData.name} joined ${guild.name} [${guild.tag}]`);
+      }
+
+    } catch (e: any) {
+      console.error(`Sync Error for guild ${guild.name}:`, e.message);
     }
   }
 
-  return logs;
+  return syncLogs;
 }

@@ -28,7 +28,9 @@ export default async function ProfilePage() {
     include: {
       member: {
         include: {
-          guild: true,
+          guilds: {
+            include: { guild: true }
+          },
           history: {
             orderBy: { createdAt: 'desc' },
             take: 10
@@ -67,22 +69,11 @@ export default async function ProfilePage() {
                   </span>
                 </div>
               </div>
-              <div>
-                <label style={{ fontSize: '0.8rem', opacity: 0.6 }}>Gilde</label>
-                <div>
-                  {member.guild && member.guild.isAllianceGuild && <span style={{ marginRight: '5px', color: 'var(--accent-color)' }}>⚔️</span>}
-                  {member.guild ? `${member.guild.name} [${member.guild.tag}]` : 'Keine'}
-                </div>
-              </div>
-              <div>
-                <label style={{ fontSize: '0.8rem', opacity: 0.6 }}>Rang</label>
-                <div>{member.rank || '-'}</div>
-              </div>
-              <div>
+              <div style={{ gridColumn: 'span 2' }}>
                 <label style={{ fontSize: '0.8rem', opacity: 0.6 }}>Kampfgilde aktiv?</label>
                 <div>{member.wvwMember ? '✅ Ja' : '❌ Nein'}</div>
               </div>
-              <div>
+              <div style={{ gridColumn: 'span 2' }}>
                 <label style={{ fontSize: '0.8rem', opacity: 0.6 }}>Allianz Mitglied?</label>
                 <div>{member.isAllianceMember ? '✅ Ja' : '❌ Nein'}</div>
               </div>
@@ -93,6 +84,19 @@ export default async function ProfilePage() {
                 </div>
               )}
             </div>
+
+            <h3 style={{ marginTop: '1.5rem', fontSize: '1rem', opacity: 0.9 }}>Gilden & Ränge</h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
+              {member.guilds.map((mg) => (
+                <div key={mg.id} style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem', borderRadius: '4px' }}>
+                  <strong style={{ color: mg.guild.isAllianceGuild ? 'var(--accent-color)' : 'inherit' }}>
+                    {mg.guild.name} [{mg.guild.tag}]
+                  </strong>
+                  <div style={{ fontSize: '0.85rem', opacity: 0.7 }}>Rang: {mg.rank}</div>
+                </div>
+              ))}
+              {member.guilds.length === 0 && <p style={{ opacity: 0.5, fontSize: '0.9rem' }}>Keinen Gilden zugeordnet.</p>}
+            </div>
             
             {member.manualRole && (
               <div style={{ marginTop: '1.5rem' }}>
@@ -101,25 +105,21 @@ export default async function ProfilePage() {
               </div>
             )}
             
-            {member.comment && (
-              <div style={{ marginTop: '1.5rem', padding: '1rem', background: 'rgba(255,255,255,0.03)', borderRadius: '4px' }}>
-                <label style={{ fontSize: '0.8rem', opacity: 0.6 }}>Interne Notiz (nur Admins/Leiter)</label>
-                <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.9rem', fontStyle: 'italic' }}>&quot;{member.comment}&quot;</p>
-              </div>
-            )}
+            {/* Note: Administrative comments (member.comment) are strictly hidden for privacy as requested */}
           </div>
 
           {/* Activity History Card */}
           <div style={{ flex: '1 1 300px', backgroundColor: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
             <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Letzte Aktivitäten</h3>
             <ul style={{ listStyle: 'none', padding: 0, marginTop: '1rem' }}>
-              {member.history.map((item: any) => (
-
-                <li key={item.id} style={{ marginBottom: '1rem', borderLeft: '2px solid var(--accent-color)', paddingLeft: '1rem', fontSize: '0.9rem' }}>
-                  <div style={{ fontSize: '0.75rem', opacity: 0.6 }} suppressHydrationWarning>{item.createdAt.toLocaleString('de-DE')}</div>
-                  <strong>{item.eventType.replace(/_/g, ' ')}</strong>
-                  {item.newValue && <div style={{ opacity: 0.8, fontSize: '0.85rem' }}>➔ {item.newValue}</div>}
-                </li>
+              {member.history
+                .filter((item: any) => !["COMMENT_ADDED", "COMMENT_CHANGED"].includes(item.eventType))
+                .map((item: any) => (
+                  <li key={item.id} style={{ marginBottom: '1rem', borderLeft: '2px solid var(--accent-color)', paddingLeft: '1rem', fontSize: '0.9rem' }}>
+                    <div style={{ fontSize: '0.75rem', opacity: 0.6 }} suppressHydrationWarning>{item.createdAt.toLocaleString('de-DE')}</div>
+                    <strong>{item.eventType.replace(/_/g, ' ')}</strong>
+                    {item.newValue && <div style={{ opacity: 0.8, fontSize: '0.85rem' }}>➔ {item.newValue}</div>}
+                  </li>
               ))}
               {member.history.length === 0 && <p style={{ opacity: 0.5 }}>Noch keine Aktivitäten aufgezeichnet.</p>}
             </ul>

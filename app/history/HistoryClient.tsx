@@ -130,7 +130,9 @@ export default function HistoryClient({ initialHistory, initialTotal }: { initia
                   </td>
                   <td style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <strong>{h.member?.accountName || "Unbekannt"}</strong>
-                    {h.member?.guild?.tag ? <span style={{ opacity: 0.6, marginLeft: "5px" }}>[{h.member.guild.tag}]</span> : null}
+                    {h.member?.guilds?.map((mg: any) => (
+                      <span key={mg.id} style={{ opacity: 0.6, marginLeft: "5px" }}>[{mg.guild.tag}]</span>
+                    ))}
                   </td>
                   <td style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <span style={{ 

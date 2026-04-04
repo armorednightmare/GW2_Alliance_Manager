@@ -13,7 +13,7 @@ export default async function MembersPage() {
 
   const members = await prisma.member.findMany({
     where: filter as any,
-    include: { guild: true, subGuild: true },
+    include: { guilds: { include: { guild: true } } },
     orderBy: { accountName: 'asc' }
   });
 

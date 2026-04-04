@@ -11,11 +11,16 @@ export async function updateMemberComment(data: FormData) {
   const comment = data.get("comment") as string;
   const manualRole = data.get("manualRole") as string;
 
-  const oldMem = await prisma.member.findUnique({ where: { id: memberId } });
+  const oldMem = await prisma.member.findUnique({ 
+    where: { id: memberId },
+    include: { guilds: { select: { guildId: true } } }
+  });
   if (!oldMem) return;
 
+  const memberGuildIds = oldMem.guilds.map(g => g.guildId);
+
   // Security Check
-  if (!canEditMember(session?.user as any, oldMem.guildId)) {
+  if (!canEditMember(session?.user as any, memberGuildIds)) {
     throw new Error("Nicht autorisiert, dieses Mitglied zu bearbeiten.");
   }
 

@@ -327,12 +327,26 @@ export async function toggleAllianceGuild(guildId: string, status: boolean) {
 
 export async function deleteGuild(guildId: string) {
   await requireAllianceLeader();
-  // Members in this guild → remove guild link, mark INACTIVE
-  await prisma.member.updateMany({
+
+  // Find all members of this guild that are about to be orphaned
+  const membersInGuild = await prisma.memberGuild.findMany({
     where: { guildId },
-    data: { guildId: null, status: "INACTIVE_LEFT" },
+    select: { memberId: true }
   });
+  
   await prisma.guild.delete({ where: { id: guildId } });
+
+  // Update members who now have no guilds left to INACTIVE_LEFT
+  for (const mg of membersInGuild) {
+    const remaining = await prisma.memberGuild.count({ where: { memberId: mg.memberId } });
+    if (remaining === 0) {
+       await prisma.member.update({
+         where: { id: mg.memberId },
+         data: { status: "INACTIVE_LEFT", isAllianceMember: false, wvwMember: false }
+       });
+    }
+  }
+
   revalidatePath("/admin");
   revalidatePath("/guilds");
 }

@@ -4,20 +4,24 @@ import React, { useState, useMemo } from "react";
 import "./Members.css";
 
 // Basic type matching prisma query response
-type MemberWithGuild = {
+// Basic type matching prisma query response
+type MemberGuild = {
+  guild: { name: string, tag: string, isAllianceGuild: boolean };
+  rank: string;
+};
+
+type MemberWithGuilds = {
   id: string;
   accountName: string;
   status: string;
-  guild?: { name: string, tag: string, isAllianceGuild: boolean } | null;
-  subGuild?: { name: string, tag: string, isAllianceGuild: boolean } | null;
-  rank?: string | null;
+  guilds: MemberGuild[];
   wvwMember: boolean;
   isAllianceMember: boolean;
   manualRole?: string | null;
   [key: string]: any;
 };
 
-export default function MembersClient({ initialMembers }: { initialMembers: MemberWithGuild[] }) {
+export default function MembersClient({ initialMembers }: { initialMembers: MemberWithGuilds[] }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [sortField, setSortField] = useState<string>("accountName");
@@ -43,9 +47,11 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
       const s = search.toLowerCase();
       filtered = filtered.filter(m => 
         m.accountName.toLowerCase().includes(s) || 
-        (m.guild?.tag && m.guild.tag.toLowerCase().includes(s)) ||
-        (m.subGuild?.tag && m.subGuild.tag.toLowerCase().includes(s)) ||
-        (m.rank && m.rank.toLowerCase().includes(s)) ||
+        m.guilds.some(mg => 
+          mg.guild.name.toLowerCase().includes(s) || 
+          mg.guild.tag.toLowerCase().includes(s) || 
+          mg.rank.toLowerCase().includes(s)
+        ) ||
         (m.manualRole && m.manualRole.toLowerCase().includes(s))
       );
     }
@@ -53,10 +59,9 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
     return filtered.sort((a, b) => {
       let valA: any, valB: any;
       if (sortField === "guildtag") {
-        const guildA = a.subGuild || a.guild;
-        const guildB = b.subGuild || b.guild;
-        valA = guildA?.tag || "";
-        valB = guildB?.tag || "";
+        // Sort by the first guild tag found
+        valA = a.guilds?.[0]?.guild?.tag || "";
+        valB = b.guilds?.[0]?.guild?.tag || "";
       } else {
         valA = a[sortField];
         valB = b[sortField];
@@ -106,8 +111,7 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
             <tr>
               <th onClick={() => handleSort("accountName")} style={{cursor:"pointer"}}>Account <SortIcon field="accountName" /></th>
               <th onClick={() => handleSort("status")} style={{cursor:"pointer"}}>Status <SortIcon field="status" /></th>
-              <th onClick={() => handleSort("guildtag")} style={{cursor:"pointer"}}>Gilde <SortIcon field="guildtag" /></th>
-              <th onClick={() => handleSort("rank")} style={{cursor:"pointer"}}>Rang <SortIcon field="rank" /></th>
+              <th>Gilden (+ Ränge)</th>
               <th onClick={() => handleSort("wvwMember")} style={{cursor:"pointer"}}>WvW Vertreten <SortIcon field="wvwMember" /></th>
               <th onClick={() => handleSort("isAllianceMember")} style={{cursor:"pointer"}}>Allianz <SortIcon field="isAllianceMember" /></th>
               <th onClick={() => handleSort("manualRole")} style={{cursor:"pointer"}}>Rollen <SortIcon field="manualRole" /></th>
@@ -116,13 +120,6 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
           </thead>
           <tbody>
             {filteredMembers.map(m => {
-              const displayGuild = m.subGuild || m.guild;
-              
-              let displayRank = m.rank || '-';
-              if (!m.isAllianceMember && m.rank) {
-                displayRank = m.subGuild ? `${m.rank} [${m.subGuild.tag}]` : '-';
-              }
-
               return (
                 <tr key={m.id} className={!m.wvwMember && m.status === 'ACTIVE' ? 'row-warning' : ''}>
 
@@ -133,9 +130,18 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
                     </span>
                   </td>
                   <td>
-                    {displayGuild ? `${displayGuild.name} [${displayGuild.tag}]` : '-'}
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.85rem' }}>
+                      {m.guilds?.map((mg, idx) => (
+                        <div key={idx} style={{ opacity: mg.guild.isAllianceGuild ? 1 : 0.8 }}>
+                          <span style={{ fontWeight: mg.guild.isAllianceGuild ? 'bold' : 'normal' }}>
+                            [{mg.guild.tag}]
+                          </span>
+                          <span style={{ marginLeft: '6px', opacity: 0.7 }}>{mg.rank}</span>
+                        </div>
+                      ))}
+                      {(!m.guilds || m.guilds.length === 0) && '-'}
+                    </div>
                   </td>
-                  <td>{displayRank}</td>
 
                   <td>{m.wvwMember ? '✅ Ja' : '❌ Nein'}</td>
                   <td>{m.isAllianceMember ? '✅ Ja' : '❌ Nein'}</td>

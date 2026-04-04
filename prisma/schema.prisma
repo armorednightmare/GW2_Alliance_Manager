@@ -65,9 +65,9 @@ model Guild {
   leaderToken     String?  // Optional API key to fetch roster
   isAllianceGuild Boolean  @default(false)
 
-  members            Member[] @relation("PrimaryMember")
-  subGuildMembers    Member[] @relation("SubGuildMember")
-  managers           User[]   @relation("GuildManagers")
+  // Junction table for members
+  members          MemberGuild[]
+  managers         User[]   @relation("GuildManagers")
 }
 
 enum MemberStatus {
@@ -80,13 +80,10 @@ model Member {
   id          String   @id @default(cuid())
   accountName String   @unique // e.g. Name.1234
   
-  guildId     String?
-  guild       Guild?   @relation("PrimaryMember", fields: [guildId], references: [id], onDelete: SetNull)
-  subGuildId  String?
-  subGuild    Guild?   @relation("SubGuildMember", fields: [subGuildId], references: [id], onDelete: SetNull)
+  // Refactored to many-to-many via junction table
+  guilds      MemberGuild[]
   
   status      MemberStatus @default(ACTIVE)
-  rank        String?
   wvwMember         Boolean  @default(false)
   isAllianceMember  Boolean  @default(false)
   invitedBy         String?
@@ -104,6 +101,21 @@ model Member {
   lastSeenAt      DateTime? // Automated (Roster Sync)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+}
+
+model MemberGuild {
+  id          String   @id @default(cuid())
+  memberId    String
+  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  guildId     String
+  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
+  
+  rank        String   // Rank within THIS specific guild
+  
+  joinedAt    DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  @@unique([memberId, guildId])
 }
 
 // ====== HISTORY ======

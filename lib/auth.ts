@@ -67,47 +67,35 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token, user, trigger }: any) {
-      if (user) {
-        // Initial login
+      if (user || token.email) {
+        const email = user?.email || token.email;
         const userInDb = await prisma.user.findUnique({ 
-          where: { email: user.email },
+          where: { email },
           include: { 
-            member: true,
+            member: {
+              include: { guilds: { include: { guild: true } } }
+            },
             managedGuilds: { select: { id: true } }
           }
         });
-        if (userInDb) {
-          token.id = userInDb.id;
-          token.role = userInDb.role;
-          token.guildId = userInDb.member?.guildId || null;
-          
-          const managedIds = userInDb.managedGuilds.map(g => g.id);
-          // If they have no explicit guilds, fallback to automated union
-          if (managedIds.length === 0 && userInDb.member?.subGuildId) {
-            managedIds.push(userInDb.member.subGuildId);
-          }
-          token.subGuildIds = managedIds;
-        }
-      } else if (token.email) {
-        // Subsequent request verification: Ensure user still exists in database
-        const userInDb = await prisma.user.findUnique({ 
-          where: { email: token.email },
-          include: { 
-            member: true,
-            managedGuilds: { select: { id: true } }
-          }
-        });
+
         if (!userInDb) {
-          return { deleted: true };
+          if (token.email) return { deleted: true };
+          return token;
         }
-        // Sync role and guildId in case admin changed it
+
         token.id = userInDb.id;
         token.role = userInDb.role;
-        token.guildId = userInDb.member?.guildId || null;
+
+        // Determine "Primary" Guild ID (Alliance preferred)
+        const allMemberGuilds = userInDb.member?.guilds || [];
+        const allianceMembership = allMemberGuilds.find(mg => mg.guild.isAllianceGuild);
+        token.guildId = allianceMembership?.guildId || allMemberGuilds[0]?.guildId || null;
         
-        const managedIds = userInDb.managedGuilds.map(g => g.id);
-        if (managedIds.length === 0 && userInDb.member?.subGuildId) {
-            managedIds.push(userInDb.member.subGuildId);
+        let managedIds = userInDb.managedGuilds.map(g => g.id);
+        // If they have no explicit managed guilds, populate from their own memberships
+        if (managedIds.length === 0) {
+          managedIds = allMemberGuilds.map(mg => mg.guildId);
         }
         token.subGuildIds = managedIds;
       }
