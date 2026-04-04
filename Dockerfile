@@ -8,7 +8,7 @@ WORKDIR /app
 
 COPY package*.json ./
 # Use --omit=dev for production if you want a minimal image, but we need devDeps for build
-RUN npm ci
+RUN npm install
 
 # 2. Rebuild the source code only when needed
 FROM base AS builder
