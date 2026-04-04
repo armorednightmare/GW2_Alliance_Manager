@@ -59,11 +59,12 @@ model User {
 
 // ====== GW2 ALLIANCE ======
 model Guild {
-  id              String   @id // The GW2 internal Guild ID
+  id              String   @id @default(uuid()) // GW2 ID or UUID for manual ones
   name            String
   tag             String
   leaderToken     String?  // Optional API key to fetch roster
   isAllianceGuild Boolean  @default(false)
+  isManual        Boolean  @default(false) // Flag for non-API guilds
 
   // Junction table for members
   members          MemberGuild[]

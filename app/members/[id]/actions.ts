@@ -43,3 +43,64 @@ export async function updateMemberComment(data: FormData) {
   revalidatePath(`/members/${memberId}`);
   revalidatePath(`/members`);
 }
+
+export async function addMemberToManualGuild(data: FormData) {
+  const session = (await getServerSession(authOptions)) as { user: AuthUser } | null;
+  const memberId = data.get("memberId") as string;
+  const guildId = data.get("guildId") as string;
+  const rank = data.get("rank") as string || "Member";
+
+  if (!canEditMember(session?.user as any, [])) {
+    throw new Error("Nicht autorisiert.");
+  }
+
+  const guild = await prisma.guild.findUnique({ where: { id: guildId, isManual: true } });
+  if (!guild) throw new Error("Gilde nicht gefunden oder nicht manuell.");
+
+  await prisma.memberGuild.create({
+    data: {
+      memberId,
+      guildId,
+      rank
+    }
+  });
+
+  await prisma.memberHistory.create({
+    data: { 
+      memberId, 
+      eventType: "JOINED", 
+      newValue: `${guild.name} [${guild.tag}] (Manuell)` 
+    }
+  });
+
+  revalidatePath(`/members/${memberId}`);
+  revalidatePath(`/members`);
+}
+
+export async function removeMemberFromManualGuild(data: FormData) {
+  const session = (await getServerSession(authOptions)) as { user: AuthUser } | null;
+  const memberGuildId = data.get("memberGuildId") as string;
+
+  if (!canEditMember(session?.user as any, [])) {
+    throw new Error("Nicht autorisiert.");
+  }
+
+  const mg = await prisma.memberGuild.findUnique({ 
+    where: { id: memberGuildId },
+    include: { guild: true }
+  });
+  if (!mg || !mg.guild.isManual) throw new Error("Zuordnung nicht gefunden oder nicht manuell.");
+
+  await prisma.memberGuild.delete({ where: { id: memberGuildId } });
+
+  await prisma.memberHistory.create({
+    data: { 
+      memberId: mg.memberId, 
+      eventType: "LEFT", 
+      newValue: `${mg.guild.name} [${mg.guild.tag}] (Manuell)` 
+    }
+  });
+
+  revalidatePath(`/members/${mg.memberId}`);
+  revalidatePath(`/members`);
+}

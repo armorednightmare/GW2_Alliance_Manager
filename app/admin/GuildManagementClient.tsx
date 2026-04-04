@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { resolveGuildsFromToken, addGuild, deleteGuild, updateGuildToken, triggerSync, toggleAllianceGuild } from "./actions";
+import { resolveGuildsFromToken, addGuild, deleteGuild, updateGuildToken, triggerSync, toggleAllianceGuild, addManualGuild } from "./actions";
 import { isHigherStaff } from "@/lib/permissions";
 
 type GuildInfo = { id: string; name: string; tag: string };
@@ -46,6 +46,11 @@ export default function GuildManagementClient({ guilds, session }: { guilds: Gui
   const [resolvedGuilds, setResolvedGuilds] = useState<GuildInfo[]>([]);
   const [selectedGuildId, setSelectedGuildId] = useState<string>("");
   const [isAllianceGuild, setIsAllianceGuild] = useState(false);
+
+  // Manual Guild state
+  const [showManualAdd, setShowManualAdd] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualTag, setManualTag] = useState("");
 
   const feedback = (text: string, isError = false) => {
     setMsg((isError ? "❌ " : "✓ ") + text);
@@ -105,6 +110,25 @@ export default function GuildManagementClient({ guilds, session }: { guilds: Gui
     setResolvedGuilds([]);
     setLeaderToken("");
     setSelectedGuildId("");
+  };
+
+  // ── Step 3: Add Manual Guild ──────────────────────────────────────────────
+  const handleAddManualGuild = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setBusy(true);
+    const formData = new FormData();
+    formData.set("name", manualName);
+    formData.set("tag", manualTag);
+    formData.set("isAllianceGuild", isAllianceGuild.toString());
+
+    try {
+      await addManualGuild(formData);
+      feedback("Manuelle Gilde erfolgreich hinzugefügt!");
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (e: any) {
+      feedback(e.message, true);
+    }
+    setBusy(false);
   };
 
   // ── Existing guild actions ────────────────────────────────────────────────
@@ -259,10 +283,30 @@ export default function GuildManagementClient({ guilds, session }: { guilds: Gui
         </div>
       )}
 
-      {/* ── Multi-Step Add Guild (Staff Only or restricted Guild Leader) ── */}
+      {/* ── Add Guild Selector (Staff Only or restricted Guild Leader) ── */}
       {canAddGuild && (
+        <div style={{ display: "flex", gap: "1rem", marginBottom: "1rem" }}>
+          <button 
+            onClick={() => { setAddStep("idle"); setShowManualAdd(false); }} 
+            className="btn-primary" style={{ opacity: (!showManualAdd && addStep !== "idle") ? 1 : 0.7 }}
+          >
+            ➕ Gilde via API Key
+          </button>
+          {isStaff && (
+            <button 
+              onClick={() => { setShowManualAdd(true); setAddStep("idle"); }} 
+              className="btn-primary" style={{ opacity: showManualAdd ? 1 : 0.7 }}
+            >
+              ➕ Manuelle Gilde erstellen
+            </button>
+          )}
+        </div>
+      )}
+
+      {/* ── Multi-Step Add Guild (API) ── */}
+      {canAddGuild && !showManualAdd && (
         <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: "10px", padding: "1.25rem", marginBottom: "1.5rem", border: "1px solid rgba(255,255,255,0.07)" }}>
-          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem" }}>➕ Neue Gilde hinzufügen</h3>
+          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem" }}>Gilde über API Key hinzufügen</h3>
 
           {/* Step indicators */}
           <div style={{ display: "flex", gap: "0.5rem", marginBottom: "1.25rem" }}>
@@ -385,6 +429,39 @@ export default function GuildManagementClient({ guilds, session }: { guilds: Gui
               </div>
             </div>
           )}
+        </div>
+      )}
+
+      {/* ── Add Manual Guild (Staff Only) ── */}
+      {isStaff && showManualAdd && (
+        <div style={{ background: "rgba(255,255,255,0.04)", borderRadius: "10px", padding: "1.25rem", marginBottom: "1.5rem", border: "1px solid rgba(255,255,255,0.07)" }}>
+          <h3 style={{ margin: "0 0 1rem 0", fontSize: "1rem" }}>Manuelle Gilde erstellen (Ohne API)</h3>
+          <form onSubmit={handleAddManualGuild} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "400px" }}>
+            <div>
+              <label style={{ display: "block", marginBottom: "0.4rem", fontSize: "0.85rem", opacity: 0.8 }}>Gilden-Name</label>
+              <input type="text" value={manualName} onChange={e => setManualName(e.target.value)} required className="search-input" placeholder="Beispiel Gilde" style={{ width: "100%" }} />
+            </div>
+            <div>
+              <label style={{ display: "block", marginBottom: "0.4rem", fontSize: "0.85rem", opacity: 0.8 }}>Gilden-Tag</label>
+              <input type="text" value={manualTag} onChange={e => setManualTag(e.target.value)} required className="search-input" placeholder="TAG" style={{ width: "100%" }} />
+            </div>
+            <div style={{ padding: "0.75rem", background: "rgba(102,252,241,0.05)", borderRadius: "8px", border: "1px solid rgba(102,252,241,0.2)" }}>
+              <label style={{ display: "flex", alignItems: "center", gap: "0.75rem", cursor: "pointer" }}>
+                <input
+                  type="checkbox"
+                  checked={isAllianceGuild}
+                  onChange={(e) => setIsAllianceGuild(e.target.checked)}
+                  style={{ width: 18, height: 18, accentColor: "var(--accent-color)" }}
+                />
+                <span style={{ fontSize: "0.9rem", fontWeight: 600 }}>
+                  Dies ist die Haupt-Allianzgilde (⚔️)
+                </span>
+              </label>
+            </div>
+            <button type="submit" disabled={busy} className="btn-primary" style={{ padding: "0.7rem", fontWeight: "bold" }}>
+              {busy ? "⏳ Speichere..." : "✓ Manuelle Gilde anlegen"}
+            </button>
+          </form>
         </div>
       )}
 

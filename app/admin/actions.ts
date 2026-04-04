@@ -315,6 +315,31 @@ export async function addGuild(data: FormData) {
   revalidatePath("/guilds");
 }
 
+export async function addManualGuild(data: FormData) {
+  await requireAllianceLeader();
+
+  const name = data.get("name") as string;
+  const tag = data.get("tag") as string;
+  const isAllianceGuild = data.get("isAllianceGuild") === "true";
+
+  if (!name || !tag) {
+    throw new Error("Name und Tag sind erforderlich für eine manuelle Gilde.");
+  }
+
+  await prisma.guild.create({
+    data: {
+      name,
+      tag,
+      isAllianceGuild,
+      isManual: true,
+      leaderToken: null
+    }
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/guilds");
+}
+
 export async function toggleAllianceGuild(guildId: string, status: boolean) {
   await requireAllianceLeader();
   await prisma.guild.update({

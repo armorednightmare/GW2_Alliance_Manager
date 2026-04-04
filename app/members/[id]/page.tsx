@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { updateMemberComment } from "./actions";
+import { updateMemberComment, addMemberToManualGuild, removeMemberFromManualGuild } from "./actions";
 import { getUserDiscordRoles } from "@/lib/discord";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -43,6 +43,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
   }
 
   const manualRoles = await prisma.manualRole.findMany({ orderBy: { name: 'asc' } });
+  const manualGuilds = await prisma.guild.findMany({ where: { isManual: true }, orderBy: { name: 'asc' } });
 
   let discordRoles: any[] = [];
   if (member.linkedUser?.discordId) {
@@ -70,7 +71,17 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                 borderRadius: '4px',
                 borderLeft: mg.guild.isAllianceGuild ? '3px solid var(--accent-color)' : 'none'
               }}>
-                <strong>{mg.guild.name} [{mg.guild.tag}]</strong>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <strong>{mg.guild.name} [{mg.guild.tag}] {mg.guild.isManual && '(Manuell)'}</strong>
+                  {mg.guild.isManual && canEditMember(user, memberGuildIds) && (
+                    <form action={removeMemberFromManualGuild}>
+                      <input type="hidden" name="memberGuildId" value={mg.id} />
+                      <button type="submit" style={{ background: 'transparent', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '1.2rem'}} title="Entfernen">
+                        🗑
+                      </button>
+                    </form>
+                  )}
+                </div>
                 <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Rang: {mg.rank}</div>
               </div>
             ))}
@@ -126,6 +137,34 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
 
                 <button type="submit" style={{ padding: '0.8rem', background: 'var(--accent-color)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                   Speichern
+                </button>
+              </form>
+
+              <hr style={{ margin: '1.5rem 0', borderColor: 'rgba(255,255,255,0.1)' }} />
+
+              <form action={addMemberToManualGuild} style={{ display: 'flex', flexDirection: 'column', gap: '1rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
+                <h4 style={{ margin: 0 }}>Manuelle Gilde zuweisen</h4>
+                <input type="hidden" name="memberId" value={member.id} />
+
+                <label style={{ fontSize: '0.9rem', opacity: 0.8 }}>Gilde</label>
+                <select name="guildId" required style={{ padding: '0.5rem', background: '#1e1e1e', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}>
+                  <option value="" style={{ background: '#1e1e1e', color: 'white' }}>-- Bitte wählen --</option>
+                  {manualGuilds.map((g: any) => {
+                    const isAlreadyMember = member.guilds.some((mg: any) => mg.guildId === g.id);
+                    if (isAlreadyMember) return null;
+                    return (
+                      <option key={g.id} value={g.id} style={{ background: '#1e1e1e', color: 'white' }}>
+                        {g.name} [{g.tag}]
+                      </option>
+                    );
+                  })}
+                </select>
+
+                <label style={{ fontSize: '0.9rem', opacity: 0.8 }}>Rang (optional)</label>
+                <input type="text" name="rank" placeholder="z.B. Gast" style={{ padding: '0.5rem', background: '#1e1e1e', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }} />
+
+                <button type="submit" style={{ padding: '0.6rem', background: 'transparent', border: '1px solid var(--accent-color)', color: 'var(--accent-color)', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}>
+                  + Hinzufügen
                 </button>
               </form>
             </>
