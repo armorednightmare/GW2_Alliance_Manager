@@ -41,6 +41,7 @@ COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=builder --chown=nextjs:nodejs /app/cron.ts ./
 COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
 COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
+COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./
 
 USER nextjs
 
