@@ -95,6 +95,7 @@ model Member {
   // Custom tracking
   manualRole  String?
   comment     String?
+  customDiscordName String?
 
   history     MemberHistory[]
 

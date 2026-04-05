@@ -104,3 +104,36 @@ export async function removeMemberFromManualGuild(data: FormData) {
   revalidatePath(`/members/${mg.memberId}`);
   revalidatePath(`/members`);
 }
+
+export async function updateDiscordName(data: FormData) {
+  const session = (await getServerSession(authOptions)) as { user: AuthUser } | null;
+  const memberId = data.get("memberId") as string;
+  let customDiscordName = data.get("customDiscordName") as string;
+  
+  if (customDiscordName && customDiscordName.trim() === "") {
+    customDiscordName = "";
+  }
+
+  const oldMem = await prisma.member.findUnique({ 
+    where: { id: memberId },
+    include: { guilds: { select: { guildId: true } }, linkedUser: true }
+  });
+  if (!oldMem) return;
+
+  const memberGuildIds = oldMem.guilds.map(g => g.guildId);
+
+  const isMe = session?.user?.id && session.user.id === oldMem.linkedUser?.id;
+  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds);
+
+  if (!isMe && !hasEditPerms) {
+    throw new Error("Nicht autorisiert, den Discord-Namen dieses Mitglieds zu bearbeiten.");
+  }
+
+  await prisma.member.update({
+    where: { id: memberId },
+    data: { customDiscordName: customDiscordName || null }
+  });
+
+  revalidatePath(`/members/${memberId}`);
+  revalidatePath(`/members`);
+}

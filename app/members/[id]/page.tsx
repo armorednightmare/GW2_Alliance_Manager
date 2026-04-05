@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { notFound } from "next/navigation";
-import { updateMemberComment, addMemberToManualGuild, removeMemberFromManualGuild } from "./actions";
+import { updateMemberComment, addMemberToManualGuild, removeMemberFromManualGuild, updateDiscordName } from "./actions";
 import { getUserDiscordRoles } from "@/lib/discord";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -50,6 +50,10 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
     discordRoles = await getUserDiscordRoles(member.linkedUser.discordId);
   }
 
+  const isMe = user?.id && user.id === member.linkedUser?.id;
+  const hasEditPerms = canEditMember(user, memberGuildIds);
+  const effectiveDiscordName = member.customDiscordName || member.linkedUser?.name || null;
+
   return (
     <div>
       <h1>Profil: {member.accountName}</h1>
@@ -90,34 +94,50 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
 
           <hr style={{ margin: '1.5rem 0', borderColor: 'rgba(255,255,255,0.1)' }} />
 
-          <h3>Discord Profil</h3>
-          {member.linkedUser ? (
-            member.linkedUser.discordId ? (
-              <div>
-                <p style={{ fontSize: '0.9rem', marginBottom: '0.5rem' }}>Verknüpft: ✅</p>
-                {discordRoles.length > 0 ? (
-                  <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "0.5rem" }}>
-                    {discordRoles.map((r: any) => (
-                      <span key={r.id} style={{
-                        background: r.color ? `#${r.color.toString(16).padStart(6, '0')}` : "var(--primary-color)",
-                        color: "white", padding: "0.2rem 0.5rem", borderRadius: "12px", fontSize: "0.8rem",
-                        textShadow: "0px 0px 3px rgba(0,0,0,0.8)"
-                      }}>
-                        {r.name}
-                      </span>
-                    ))}
-                  </div>
-                ) : (
-                  <p style={{ fontSize: '0.8rem', opacity: 0.6 }}>(Keine spezifischen Rollen gefunden oder Bot nicht konfiguriert)</p>
-                )}
-              </div>
-            ) : (
-              <p style={{ opacity: 0.6, fontSize: '0.9rem' }}>Account registriert, aber nicht via Discord eingeloggt.</p>
-            )
-          ) : (
-            <p style={{ opacity: 0.6, fontSize: '0.9rem' }}>Noch kein Web-Account verknüpft.</p>
-          )}
+          <div style={{ marginBottom: "2rem" }}>
+            <h3>Discord Profil</h3>
+            
+            <div style={{ background: 'rgba(0,0,0,0.15)', padding: '1rem', borderRadius: '8px', borderLeft: '3px solid #5865F2' }}>
+              {effectiveDiscordName ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{effectiveDiscordName}</span>
+                  {member.customDiscordName ? (
+                    <span style={{fontSize:'0.8rem', opacity:0.6}}>(Manuell überschrieben)</span>
+                  ) : (
+                    <span style={{fontSize:'0.8rem', color:'#5865F2'}}>(Verknüpft ✅)</span>
+                  )}
+                </div>
+              ) : (
+                <p style={{ opacity: 0.6, fontSize: '0.9rem', margin: 0 }}>Keine Discord-Daten vorhanden.</p>
+              )}
 
+              {member.linkedUser?.discordId && discordRoles.length > 0 && (
+                <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "1rem" }}>
+                  {discordRoles.map((r: any) => (
+                    <span key={r.id} style={{
+                      background: r.color ? `#${r.color.toString(16).padStart(6, '0')}` : "var(--primary-color)",
+                      color: "white", padding: "0.2rem 0.6rem", borderRadius: "12px", fontSize: "0.75rem",
+                      textShadow: "0px 0px 3px rgba(0,0,0,0.8)", fontWeight: 'bold'
+                    }}>
+                      {r.name}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {(isMe || hasEditPerms) && (
+              <form action={updateDiscordName} style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
+                <label style={{ fontSize: '0.9rem', opacity: 0.8 }}>Discord-Namen anpassen</label>
+                <input type="hidden" name="memberId" value={member.id} />
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input type="text" name="customDiscordName" defaultValue={member.customDiscordName || member.linkedUser?.name || ""} placeholder="Neuer Discord Name..." style={{ flex: 1, padding: '0.5rem', background: '#1e1e1e', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }} />
+                  <button type="submit" style={{ padding: '0.5rem 1rem', background: 'var(--accent-color)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Speichern</button>
+                </div>
+                <p style={{ fontSize: '0.8rem', opacity: 0.6, margin: 0 }}>Leer lassen und speichern, um wieder den Namen der Web-Verknüpfung zu nutzen.</p>
+              </form>
+            )}
+          </div>
           {canEditMember(user, memberGuildIds) && (
             <>
               <h3>Verwaltung</h3>
