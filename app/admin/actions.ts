@@ -578,14 +578,35 @@ export async function executeMemberImport(selectedItems: any[], overwriteConflic
         }
       }
 
-      // 4. History log
-      await prisma.memberHistory.create({
-        data: {
-          memberId: member.id,
-          eventType: "COMMENT_ADDED",
-          newValue: `Importiert via Excel (Rolle: ${item.rank})`
-        }
-      });
+      // 4. Detailed History logging for Import
+      if (!item.existingId) {
+        await prisma.memberHistory.create({
+          data: { memberId: member.id, eventType: "JOINED", newValue: "Via Excel Import" }
+        });
+      }
+
+      if (item.rank) {
+        await prisma.memberHistory.create({
+          data: { 
+            memberId: member.id, 
+            eventType: "RANK_CHANGE", 
+            newValue: item.rank,
+            oldValue: item.status === "CONFLICT" ? "Abweichend" : undefined 
+          }
+        });
+      }
+
+      if (item.discordName) {
+        await prisma.memberHistory.create({
+          data: { memberId: member.id, eventType: "DISCORD_NAME_CHANGED", newValue: item.discordName }
+        });
+      }
+
+      if (item.comment) {
+        await prisma.memberHistory.create({
+          data: { memberId: member.id, eventType: "COMMENT_ADDED", newValue: item.comment }
+        });
+      }
 
     } catch (e) {
       console.error("Import error for", item.accountName, e);

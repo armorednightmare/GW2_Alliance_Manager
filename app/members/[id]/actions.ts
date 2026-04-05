@@ -40,6 +40,17 @@ export async function updateMemberComment(data: FormData) {
     });
   }
 
+  if (oldMem.manualRole !== manualRole) {
+    await prisma.memberHistory.create({
+      data: {
+        memberId: memberId,
+        eventType: "MANUAL_ROLE_CHANGED",
+        oldValue: oldMem.manualRole,
+        newValue: manualRole
+      }
+    });
+  }
+
   revalidatePath(`/members/${memberId}`);
   revalidatePath(`/members`);
 }
@@ -133,6 +144,17 @@ export async function updateDiscordName(data: FormData) {
     where: { id: memberId },
     data: { customDiscordName: customDiscordName || null }
   });
+
+  if (oldMem.customDiscordName !== customDiscordName) {
+    await prisma.memberHistory.create({
+      data: {
+        memberId: memberId,
+        eventType: "DISCORD_NAME_CHANGED",
+        oldValue: oldMem.customDiscordName,
+        newValue: customDiscordName || null
+      }
+    });
+  }
 
   revalidatePath(`/members/${memberId}`);
   revalidatePath(`/members`);

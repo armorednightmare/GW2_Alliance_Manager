@@ -209,8 +209,9 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                   <strong style={{ fontSize: '0.85rem', color: 'var(--accent-color)' }}>{item.eventType.replace(/_/g, ' ')}</strong>
                   {item.oldValue || item.newValue ? (
                     <div style={{ marginTop: '0.2rem', fontSize: '0.9rem' }}>
-                      {item.oldValue && <span style={{ opacity: 0.6 }}>{item.oldValue} ➔ </span>}
-                      <span>{item.newValue}</span>
+                      {item.oldValue && <span style={{ opacity: 0.6, textDecoration: 'line-through' }}>{item.oldValue}</span>}
+                      {item.oldValue && <span style={{ opacity: 0.6 }}> ➔ </span>}
+                      <span>{item.newValue || <em style={{opacity: 0.5}}>(geleert)</em>}</span>
                     </div>
                   ) : null}
                 </li>
