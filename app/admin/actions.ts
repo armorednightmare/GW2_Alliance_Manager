@@ -404,3 +404,223 @@ export async function triggerSync() {
 
   throw new Error("Nicht autorisiert");
 }
+
+// ── Member Import (Excel) ───────────────────────────────────────────────────
+
+export async function analyzeMemberImport(formData: FormData) {
+  const session = await requireAllianceLeader();
+  const file = formData.get("file") as File;
+  if (!file) throw new Error("Keine Datei hochgeladen");
+
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+  
+  const xlsx = await import("xlsx");
+  const workbook = xlsx.read(buffer, { type: "buffer" });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  const rows = xlsx.utils.sheet_to_json(sheet) as any[];
+
+  const preview = [];
+  
+  // Find Alliance Guild ("Frog") for rank comparison
+  const allianceGuild = await prisma.guild.findFirst({ where: { isAllianceGuild: true } });
+
+  for (const row of rows) {
+    const findValue = (keys: string[]) => {
+      const foundKey = Object.keys(row).find(k => keys.some(alt => k.toLowerCase().includes(alt.toLowerCase())));
+      return foundKey ? row[foundKey] : null;
+    };
+
+    const accountName = (findValue(["Accountname", "Account Name", "Account-Name", "Account ID", "Account-ID"]) || findValue(["Account"]))?.toString().trim();
+    if (!accountName) continue;
+
+    const excelData = {
+      accountName,
+      rank: findValue(["Rolle", "Rang", "Rank", "Role"])?.toString().trim() || "",
+      joinedAt: findValue(["Datum Join", "Join Date", "Mitglied seit", "Eintritt", "Join"]),
+      discordName: findValue(["Discordname", "Discord Name", "Discord Tag", "Discord"])?.toString().trim() || "",
+      guildName: findValue(["Gildenzugehörigkeit", "Gilde", "Guild"])?.toString().trim() || "",
+      comment: findValue(["Kommentar", "Notiz", "Comment", "Note"])?.toString().trim() || ""
+    };
+
+    const existing = await prisma.member.findUnique({
+      where: { accountName },
+      include: { 
+        guilds: { 
+          where: allianceGuild ? { guildId: allianceGuild.id } : {},
+          include: { guild: true }
+        }
+      }
+    });
+
+    let status: "NEW" | "UPDATE" | "CONFLICT" = "NEW";
+    const conflicts: string[] = [];
+    const updates: string[] = [];
+
+    if (existing) {
+      status = "UPDATE";
+      
+      const allianceMembership = existing.guilds[0];
+      
+      if (excelData.rank && allianceMembership && allianceMembership.rank !== excelData.rank) {
+        status = "CONFLICT";
+        conflicts.push(`Rang: DB(${allianceMembership.rank}) vs Excel(${excelData.rank})`);
+      } else if (excelData.rank && !allianceMembership) {
+        updates.push(`Rang: ${excelData.rank} setzen`);
+      }
+
+      if (excelData.comment && existing.comment && existing.comment !== excelData.comment) {
+        status = "CONFLICT";
+        conflicts.push(`Kommentar: DB unterscheidet sich`);
+      } else if (excelData.comment && !existing.comment) {
+        updates.push("Kommentar hinzufügen");
+      }
+
+      if (excelData.discordName && existing.customDiscordName && existing.customDiscordName !== excelData.discordName) {
+        status = "CONFLICT";
+        conflicts.push(`Discord: DB(${existing.customDiscordName}) vs Excel(${excelData.discordName})`);
+      } else if (excelData.discordName && !existing.customDiscordName) {
+        updates.push("Discord-Name setzen");
+      }
+    }
+
+    preview.push({
+      ...excelData,
+      status,
+      conflicts,
+      updates,
+      existingId: existing?.id || null
+    });
+  }
+
+  return preview;
+}
+
+export async function executeMemberImport(selectedItems: any[], overwriteConflicts: boolean) {
+  const session = await requireAllianceLeader();
+  const allianceGuild = await prisma.guild.findFirst({ where: { isAllianceGuild: true } });
+
+  const results = { created: 0, updated: 0, errors: 0 };
+
+  for (const item of selectedItems) {
+    try {
+      // 1. Upsert Member
+      const updateData: any = {
+        comment: item.comment || undefined,
+        customDiscordName: item.discordName || undefined,
+      };
+
+      // Handle raw date from Excel
+      const parsedDate = parseExcelDate(item.joinedAt);
+      if (parsedDate) {
+        updateData.joinedAt = parsedDate;
+      }
+
+      const member = await prisma.member.upsert({
+        where: { accountName: item.accountName },
+        update: updateData,
+        create: {
+          accountName: item.accountName,
+          ...updateData,
+          status: "ACTIVE",
+          isAllianceMember: true
+        }
+      });
+
+      if (!item.existingId) results.created++;
+      else results.updated++;
+
+      // 2. Alliance Guild Membership ("Frog")
+      if (allianceGuild && item.rank) {
+        await prisma.memberGuild.upsert({
+          where: {
+            memberId_guildId: {
+              memberId: member.id,
+              guildId: allianceGuild.id
+            }
+          },
+          update: { rank: item.rank },
+          create: {
+            memberId: member.id,
+            guildId: allianceGuild.id,
+            rank: item.rank
+          }
+        });
+      }
+
+      // 3. Secondary Guild Membership
+      if (item.guildName && item.guildName !== allianceGuild?.name && item.guildName !== allianceGuild?.tag) {
+        const secondaryGuild = await prisma.guild.findFirst({
+          where: {
+            OR: [
+              { name: { equals: item.guildName, mode: 'insensitive' } },
+              { tag: { equals: item.guildName, mode: 'insensitive' } }
+            ]
+          }
+        });
+
+        if (secondaryGuild) {
+          await prisma.memberGuild.upsert({
+            where: {
+              memberId_guildId: {
+                memberId: member.id,
+                guildId: secondaryGuild.id
+              }
+            },
+            update: {}, // Keep existing rank in secondary guild if already exists
+            create: {
+              memberId: member.id,
+              guildId: secondaryGuild.id,
+              rank: "Member"
+            }
+          });
+        }
+      }
+
+      // 4. History log
+      await prisma.memberHistory.create({
+        data: {
+          memberId: member.id,
+          eventType: "COMMENT_ADDED",
+          newValue: `Importiert via Excel (Rolle: ${item.rank})`
+        }
+      });
+
+    } catch (e) {
+      console.error("Import error for", item.accountName, e);
+      results.errors++;
+    }
+  }
+
+  revalidatePath("/members");
+  revalidatePath("/admin");
+  return results;
+}
+
+function parseExcelDate(value: any): Date | null {
+  if (!value) return null;
+  
+  // 1. If it's already a Date object
+  if (value instanceof Date) return value;
+
+  // 2. If it's a number (Excel serial date)
+  if (typeof value === "number") {
+    return new Date((value - (25567 + 1)) * 86400 * 1000);
+  }
+
+  // 3. If it's a string, try common formats (including Google Sheets DD.MM.YYYY)
+  if (typeof value === "string") {
+    const s = value.trim();
+    // Try DD.MM.YYYY
+    const dmy = s.match(/^(\d{1,2})\.(\d{1,2})\.(\d{4})$/);
+    if (dmy) {
+      return new Date(parseInt(dmy[3]), parseInt(dmy[2]) - 1, parseInt(dmy[1]));
+    }
+    // Fallback to standard JS parsing
+    const d = new Date(s);
+    if (!isNaN(d.getTime())) return d;
+  }
+
+  return null;
+}

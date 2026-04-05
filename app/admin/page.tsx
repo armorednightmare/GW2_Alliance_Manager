@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import UserManagementClient from "./UserManagementClient";
 import GuildManagementClient from "./GuildManagementClient";
 import RoleManagementClient from "./RoleManagementClient";
+import ImportManagementClient from "./ImportManagementClient";
 import { canManageUsers, canManageGuilds, canEditTheme, isHigherStaff } from "@/lib/permissions";
 
 const PANEL_STYLE = {
@@ -75,10 +76,20 @@ export default async function AdminPage() {
 
       {/* ── User Management (Higher Staff only) ── */}
       {canManageUsers(user) && (
-        <div style={PANEL_STYLE}>
-          <h2 style={{ margin: "0 0 0.5rem 0" }}>👥 User Verwaltung</h2>
-          <UserManagementClient users={users} guilds={allGuilds} />
-        </div>
+        <>
+          <div style={PANEL_STYLE}>
+            <h2 style={{ margin: "0 0 0.5rem 0" }}>👥 User Verwaltung</h2>
+            <UserManagementClient users={users} guilds={allGuilds} />
+          </div>
+
+          <div style={PANEL_STYLE}>
+            <h2 style={{ margin: "0 0 0.5rem 0" }}>📦 Daten Import (Excel)</h2>
+            <p style={{ opacity: 0.7, margin: "0 0 1rem 0", fontSize: "0.9rem" }}>
+              Lade eine Excel-Datei hoch, um Mitglieder-Daten (Rang, Join-Datum, Discord-Name, Kommentar) massenweise zu aktualisieren oder anzulegen.
+            </p>
+            <ImportManagementClient />
+          </div>
+        </>
       )}
 
       {/* ── Guild Management (Admins & Guild Leaders) ── */}

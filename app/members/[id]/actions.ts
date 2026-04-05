@@ -54,7 +54,7 @@ export async function addMemberToManualGuild(data: FormData) {
     throw new Error("Nicht autorisiert.");
   }
 
-  const guild = await prisma.guild.findUnique({ where: { id: guildId, isManual: true } });
+  const guild = await prisma.guild.findFirst({ where: { id: guildId, isManual: true } });
   if (!guild) throw new Error("Gilde nicht gefunden oder nicht manuell.");
 
   await prisma.memberGuild.create({
