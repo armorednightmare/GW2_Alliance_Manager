@@ -551,11 +551,16 @@ export async function executeMemberImport(selectedItems: any[], overwriteConflic
 
       // 3. Secondary Guild Membership
       if (item.guildName && item.guildName !== allianceGuild?.name && item.guildName !== allianceGuild?.tag) {
+        // Strip brackets if present (e.g. [GoP] -> GoP)
+        const cleanGuildName = item.guildName.replace(/^\[/, "").replace(/\]$/, "");
+        
         const secondaryGuild = await prisma.guild.findFirst({
           where: {
             OR: [
               { name: { equals: item.guildName, mode: 'insensitive' } },
-              { tag: { equals: item.guildName, mode: 'insensitive' } }
+              { tag: { equals: item.guildName, mode: 'insensitive' } },
+              { name: { equals: cleanGuildName, mode: 'insensitive' } },
+              { tag: { equals: cleanGuildName, mode: 'insensitive' } }
             ]
           }
         });
