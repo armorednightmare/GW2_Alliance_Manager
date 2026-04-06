@@ -2,7 +2,7 @@
 import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { getHistoryVisibilityFilter } from "@/lib/permissions";
+import { AuthUser, canSeeRank, getHistoryVisibilityFilter } from "@/lib/permissions";
 
 
 export async function fetchHistoryLogs(page: number, limit: number, search: string) {
@@ -28,7 +28,8 @@ export async function fetchHistoryLogs(page: number, limit: number, search: stri
   }
 
   const session = await getServerSession(authOptions);
-  const historyFilter = await getHistoryVisibilityFilter((session as any)?.user);
+  const user = (session as any)?.user as AuthUser | undefined;
+  const historyFilter = await getHistoryVisibilityFilter(user);
 
 
   const finalWhere = {
@@ -46,6 +47,24 @@ export async function fetchHistoryLogs(page: number, limit: number, search: stri
     prisma.memberHistory.count({ where: finalWhere })
   ]);
 
+  // Mask rank changes
+  const maskedData = data.map(h => {
+    if (h.eventType === "RANK_CHANGE") {
+      const tagMatch = h.newValue?.match(/\(([^)]+)\)/) || h.oldValue?.match(/\(([^)]+)\)/);
+      if (tagMatch) {
+         const tag = tagMatch[1];
+         const guild = h.member?.guilds.find((mg: any) => mg.guild.tag === tag);
+         if (guild && !canSeeRank(user, guild.guildId)) {
+           return {
+             ...h,
+             oldValue: h.oldValue ? "Versteckt" : null,
+             newValue: h.newValue ? "Versteckt" : null
+           };
+         }
+      }
+    }
+    return h;
+  });
 
-  return { data, total };
+  return { data: maskedData, total };
 }

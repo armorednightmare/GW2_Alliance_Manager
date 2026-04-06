@@ -3,7 +3,7 @@ import MembersClient from "./MembersClient";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import Link from "next/link";
-import { getMemberVisibilityFilter, AuthUser } from "@/lib/permissions";
+import { getMemberVisibilityFilter, AuthUser, canSeeRank } from "@/lib/permissions";
 
 export default async function MembersPage() {
   const session = await getServerSession(authOptions);
@@ -17,6 +17,15 @@ export default async function MembersPage() {
     orderBy: { accountName: 'asc' }
   });
 
+  // Mask ranks for guilds the user is not part of
+  const maskedMembers = members.map(m => ({
+    ...m,
+    guilds: m.guilds.map(mg => ({
+      ...mg,
+      rank: canSeeRank(user, mg.guildId) ? mg.rank : "Versteckt"
+    }))
+  }));
+
   return (
     <div>
       <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)"}}>Mitgliederübersicht</h1>
@@ -29,7 +38,7 @@ export default async function MembersPage() {
             : " Sie sehen Allianzmitglieder sowie Mitglieder Ihrer eigenen Gilde."}
       </p>
 
-      <MembersClient initialMembers={members} />
+      <MembersClient initialMembers={maskedMembers as any} />
     </div>
   );
 }

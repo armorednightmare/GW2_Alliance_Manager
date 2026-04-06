@@ -407,7 +407,27 @@ export async function triggerSync() {
 
 // ── Member Import (Excel) ───────────────────────────────────────────────────
 
-export async function analyzeMemberImport(formData: FormData) {
+export async function getImportHeaders(formData: FormData) {
+  const session = await requireAllianceLeader();
+  const file = formData.get("file") as File;
+  if (!file) throw new Error("Keine Datei hochgeladen");
+
+  const bytes = await file.arrayBuffer();
+  const buffer = Buffer.from(bytes);
+  
+  const xlsx = await import("xlsx");
+  const workbook = xlsx.read(buffer, { type: "buffer" });
+  const sheetName = workbook.SheetNames[0];
+  const sheet = workbook.Sheets[sheetName];
+  
+  // Get only first row for performance
+  const rows = xlsx.utils.sheet_to_json(sheet, { range: 0 }) as any[];
+  if (rows.length === 0) return [];
+  
+  return Object.keys(rows[0]);
+}
+
+export async function analyzeMemberImport(formData: FormData, manualMapping?: Record<string, string>) {
   const session = await requireAllianceLeader();
   const file = formData.get("file") as File;
   if (!file) throw new Error("Keine Datei hochgeladen");
@@ -427,22 +447,32 @@ export async function analyzeMemberImport(formData: FormData) {
   const allianceGuild = await prisma.guild.findFirst({ where: { isAllianceGuild: true } });
 
   for (const row of rows) {
-    const findValue = (keys: string[]) => {
+    const findValue = (keys: string[], fieldKey?: string) => {
+      // If manual mapping is provided for this field, use it
+      if (manualMapping && fieldKey && manualMapping[fieldKey]) {
+        return row[manualMapping[fieldKey]] || null;
+      }
+      // Otherwise fallback to fuzzy logic
       const foundKey = Object.keys(row).find(k => keys.some(alt => k.toLowerCase().includes(alt.toLowerCase())));
       return foundKey ? row[foundKey] : null;
     };
 
-    const accountName = (findValue(["Accountname", "Account Name", "Account-Name", "Account ID", "Account-ID"]) || findValue(["Account"]))?.toString().trim();
+    const accountName = (findValue(["Accountname", "Account Name", "Account-Name", "Account ID", "Account-ID"], "accountName") || findValue(["Account"]))?.toString().trim();
     if (!accountName) continue;
 
     const excelData = {
       accountName,
-      rank: findValue(["Rolle", "Rang", "Rank", "Role"])?.toString().trim() || "",
-      joinedAt: findValue(["Datum Join", "Join Date", "Mitglied seit", "Eintritt", "Join"]),
-      discordName: findValue(["Discordname", "Discord Name", "Discord Tag", "Discord"])?.toString().trim() || "",
-      guildName: findValue(["Gildenzugehörigkeit", "Gilde", "Guild"])?.toString().trim() || "",
-      comment: findValue(["Kommentar", "Notiz", "Comment", "Note"])?.toString().trim() || ""
+      rank: findValue(["Rolle", "Rang", "Rank", "Role"], "rank")?.toString().trim() || "",
+      joinedAt: findValue(["Beitritt", "Datum Join", "Join Date", "Mitglied seit", "Eintritt", "Join"], "joinedAt"),
+      discordName: findValue(["Discordname", "Discord Name", "Discord Tag", "Discord"], "discordName")?.toString().trim() || "",
+      guildName: findValue(["Gildenzugehörigkeit", "Gilde", "Guild"], "guildName")?.toString().trim() || "",
+      comment: findValue(["Info", "Kommentar", "Notiz", "Comment", "Note"], "comment")?.toString().trim() || ""
     };
+
+    // Special handling for [keine Zugehörigkeit]
+    if (excelData.guildName?.toLowerCase().includes("keine zugehörigkeit")) {
+      excelData.guildName = "";
+    }
 
     const existing = await prisma.member.findUnique({
       where: { accountName },
@@ -457,39 +487,100 @@ export async function analyzeMemberImport(formData: FormData) {
     let status: "NEW" | "UPDATE" | "CONFLICT" = "NEW";
     const conflicts: string[] = [];
     const updates: string[] = [];
+    
+    // Structured diff for UI
+    const diff: any = {
+      rank: { old: "", new: excelData.rank, isChanged: !!excelData.rank },
+      joinedAt: { old: "", new: excelData.joinedAt, isChanged: !!excelData.joinedAt },
+      discordName: { old: "", new: excelData.discordName, isChanged: !!excelData.discordName },
+      guildName: { old: "", new: excelData.guildName, isChanged: !!excelData.guildName },
+      comment: { old: "", new: excelData.comment, isChanged: !!excelData.comment },
+    };
 
     if (existing) {
       status = "UPDATE";
-      
       const allianceMembership = existing.guilds[0];
-      
-      if (excelData.rank && allianceMembership && allianceMembership.rank !== excelData.rank) {
-        status = "CONFLICT";
-        conflicts.push(`Rang: DB(${allianceMembership.rank}) vs Excel(${excelData.rank})`);
-      } else if (excelData.rank && !allianceMembership) {
-        updates.push(`Rang: ${excelData.rank} setzen`);
+      const oldRank = allianceMembership?.rank || "";
+      const oldDiscord = existing.customDiscordName || "";
+      const oldComment = existing.comment || "";
+      const oldJoinedAt = existing.joinedAt?.toISOString() || "";
+
+      // 1. Rank
+      if (excelData.rank) {
+        if (oldRank && oldRank !== excelData.rank) {
+          status = "CONFLICT";
+          conflicts.push(`Rang: DB(${oldRank}) vs Excel(${excelData.rank})`);
+          diff.rank = { old: oldRank, new: excelData.rank, isChanged: true, conflict: true };
+        } else if (oldRank !== excelData.rank) {
+          updates.push(`Rang: ${excelData.rank} setzen`);
+          diff.rank = { old: oldRank, new: excelData.rank, isChanged: true };
+        } else {
+          diff.rank = { old: oldRank, new: oldRank, isChanged: false };
+        }
+      } else {
+        diff.rank = { old: oldRank, new: oldRank, isChanged: false };
       }
 
-      if (excelData.comment && existing.comment && existing.comment !== excelData.comment) {
-        status = "CONFLICT";
-        conflicts.push(`Kommentar: DB unterscheidet sich`);
-      } else if (excelData.comment && !existing.comment) {
-        updates.push("Kommentar hinzufügen");
+      // 2. Comment
+      if (excelData.comment) {
+        if (oldComment && oldComment !== excelData.comment) {
+          status = "CONFLICT";
+          conflicts.push(`Kommentar: DB unterscheidet sich`);
+          diff.comment = { old: oldComment, new: excelData.comment, isChanged: true, conflict: true };
+        } else if (oldComment !== excelData.comment) {
+          updates.push("Kommentar hinzufügen");
+          diff.comment = { old: oldComment, new: excelData.comment, isChanged: true };
+        } else {
+          diff.comment = { old: oldComment, new: oldComment, isChanged: false };
+        }
+      } else {
+        diff.comment = { old: oldComment, new: oldComment, isChanged: false };
       }
 
-      if (excelData.discordName && existing.customDiscordName && existing.customDiscordName !== excelData.discordName) {
-        status = "CONFLICT";
-        conflicts.push(`Discord: DB(${existing.customDiscordName}) vs Excel(${excelData.discordName})`);
-      } else if (excelData.discordName && !existing.customDiscordName) {
-        updates.push("Discord-Name setzen");
+      // 3. Discord
+      if (excelData.discordName) {
+        if (oldDiscord && oldDiscord !== excelData.discordName) {
+          status = "CONFLICT";
+          conflicts.push(`Discord: DB(${oldDiscord}) vs Excel(${excelData.discordName})`);
+          diff.discordName = { old: oldDiscord, new: excelData.discordName, isChanged: true, conflict: true };
+        } else if (oldDiscord !== excelData.discordName) {
+          updates.push("Discord-Name setzen");
+          diff.discordName = { old: oldDiscord, new: excelData.discordName, isChanged: true };
+        } else {
+          diff.discordName = { old: oldDiscord, new: oldDiscord, isChanged: false };
+        }
+      } else {
+        diff.discordName = { old: oldDiscord, new: oldDiscord, isChanged: false };
       }
+
+      // 4. JoinedAt
+      if (excelData.joinedAt) {
+        const parsed = parseExcelDate(excelData.joinedAt);
+        if (parsed) {
+          const hasJoinedAt = !!existing.joinedAt;
+          const sameDate = hasJoinedAt && existing.joinedAt!.getTime() === parsed.getTime();
+          if (!sameDate) {
+            updates.push("Beitrittsdatum aktualisieren");
+            diff.joinedAt = { old: oldJoinedAt, new: parsed.toISOString(), isChanged: true };
+          } else {
+            diff.joinedAt = { old: oldJoinedAt, new: oldJoinedAt, isChanged: false };
+          }
+        }
+      } else {
+        diff.joinedAt = { old: oldJoinedAt, new: oldJoinedAt, isChanged: false };
+      }
+
+      // 5. Secondary Guild (simplified diff)
+      diff.guildName = { old: "", new: excelData.guildName, isChanged: !!excelData.guildName };
     }
 
     preview.push({
-      ...excelData,
+      accountName,
       status,
       conflicts,
       updates,
+      diff,
+      excelData, // Keep original data for execution
       existingId: existing?.id || null
     });
   }

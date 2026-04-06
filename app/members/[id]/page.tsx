@@ -4,7 +4,7 @@ import { updateMemberComment, addMemberToManualGuild, removeMemberFromManualGuil
 import { getUserDiscordRoles } from "@/lib/discord";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { canEditMember, AuthUser } from "@/lib/permissions";
+import { canEditMember, AuthUser, canSeeRank } from "@/lib/permissions";
 
 
 export default async function MemberDetailPage({ params }: { params: { id: string } }) {
@@ -27,7 +27,34 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
   const session = await getServerSession(authOptions);
   const user = (session as any)?.user as AuthUser | undefined;
 
+  // Mask ranks for guilds the user is not part of
+  const maskedGuilds = member.guilds.map(mg => ({
+    ...mg,
+    rank: canSeeRank(user, mg.guildId) ? mg.rank : "Versteckt"
+  }));
+
   const memberGuildIds = member.guilds.map(g => g.guildId);
+
+  // Mask history RANK_CHANGE events
+  const maskedHistory = member.history.map(item => {
+    if (item.eventType === "RANK_CHANGE") {
+      // RANK_CHANGE values are formatted as "Rank (TAG)"
+      // We try to extract the TAG and check permissions
+      const tagMatch = item.newValue?.match(/\(([^)]+)\)/) || item.oldValue?.match(/\(([^)]+)\)/);
+      if (tagMatch) {
+         const tag = tagMatch[1];
+         const guild = member.guilds.find(mg => mg.guild.tag === tag);
+         if (guild && !canSeeRank(user, guild.guildId)) {
+           return {
+             ...item,
+             oldValue: item.oldValue ? "Versteckt" : null,
+             newValue: item.newValue ? "Versteckt" : null
+           };
+         }
+      }
+    }
+    return item;
+  });
 
   // --- Visibility Check ---
   // If not alliance member, only Admin or their Guild Leader can see the profile
@@ -68,7 +95,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
 
           <h3 style={{ marginTop: '1.5rem' }}>Gilden & Ränge</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-            {member.guilds.map((mg) => (
+            {maskedGuilds.map((mg: any) => (
               <div key={mg.id} style={{ 
                 background: 'rgba(255,255,255,0.05)', 
                 padding: '0.8rem', 
@@ -194,7 +221,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
         <div style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '8px' }}>
           <h3>Aktivitäten / Historie</h3>
           <ul style={{ listStyle: 'none', padding: 0 }}>
-            {member.history
+            {maskedHistory
               .filter((item: any) => {
                 const isCommentEvent = item.eventType === "COMMENT_ADDED" || item.eventType === "COMMENT_CHANGED";
                 if (isCommentEvent) {

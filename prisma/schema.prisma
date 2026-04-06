@@ -5,25 +5,24 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
 }
 
 // ====== SYSTEM ======
 model SystemSettings {
-  id              String @id @default(cuid())
-  allianceName    String @default("Alliance")
+  id              String  @id @default(cuid())
+  allianceName    String  @default("Alliance")
   logoUrl         String?
-  colorPrimary    String @default("#2c3e50")
-  colorAccent     String @default("#27ae60")
-  colorBg         String @default("#121212")
-  apiSyncInterval Int    @default(60) // in minutes
+  colorPrimary    String  @default("#2c3e50")
+  colorAccent     String  @default("#27ae60")
+  colorBg         String  @default("#121212")
+  apiSyncInterval Int     @default(60) // in minutes
 }
 
 // ====== ROLES ======
 model ManualRole {
-  id      String @id @default(cuid())
-  name    String @unique
-  color   String @default("#ffffff")
+  id    String @id @default(cuid())
+  name  String @unique
+  color String @default("#ffffff")
 }
 
 // ====== USERS ======
@@ -40,35 +39,35 @@ model User {
   email         String?   @unique
   emailVerified DateTime?
   image         String?
-  passwordHash  String?   // For local login
+  passwordHash  String? // For local login
   role          Role      @default(WEB_MEMBER)
-  
+
   // Link to GW2 Member
-  memberId      String?   @unique
-  member        Member?   @relation(fields: [memberId], references: [id], onDelete: SetNull)
+  memberId String? @unique
+  member   Member? @relation(fields: [memberId], references: [id], onDelete: SetNull)
 
   // External IDs
-  discordId     String?
+  discordId String?
 
   managedGuilds Guild[] @relation("GuildManagers")
 
-  lastLoginAt   DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
 }
 
 // ====== GW2 ALLIANCE ======
 model Guild {
-  id              String   @id @default(uuid()) // GW2 ID or UUID for manual ones
+  id              String  @id @default(uuid()) // GW2 ID or UUID for manual ones
   name            String
   tag             String
-  leaderToken     String?  // Optional API key to fetch roster
-  isAllianceGuild Boolean  @default(false)
-  isManual        Boolean  @default(false) // Flag for non-API guilds
+  leaderToken     String? // Optional API key to fetch roster
+  isAllianceGuild Boolean @default(false)
+  isManual        Boolean @default(false) // Flag for non-API guilds
 
   // Junction table for members
-  members          MemberGuild[]
-  managers         User[]   @relation("GuildManagers")
+  members  MemberGuild[]
+  managers User[]        @relation("GuildManagers")
 }
 
 enum MemberStatus {
@@ -78,44 +77,44 @@ enum MemberStatus {
 }
 
 model Member {
-  id          String   @id @default(cuid())
-  accountName String   @unique // e.g. Name.1234
-  
+  id          String @id @default(cuid())
+  accountName String @unique // e.g. Name.1234
+
   // Refactored to many-to-many via junction table
-  guilds      MemberGuild[]
-  
-  status      MemberStatus @default(ACTIVE)
-  wvwMember         Boolean  @default(false)
-  isAllianceMember  Boolean  @default(false)
-  invitedBy         String?
+  guilds MemberGuild[]
+
+  status           MemberStatus @default(ACTIVE)
+  wvwMember        Boolean      @default(false)
+  isAllianceMember Boolean      @default(false)
+  invitedBy        String?
 
   // System relation
-  linkedUser  User?
-  
+  linkedUser User?
+
   // Custom tracking
-  manualRole  String?
-  comment     String?
+  manualRole        String?
+  comment           String?
   customDiscordName String?
 
-  history     MemberHistory[]
+  history MemberHistory[]
 
-  joinedAt    DateTime?
-  lastSeenAt      DateTime? // Automated (Roster Sync)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  joinedAt   DateTime?
+  lastSeenAt DateTime? // Automated (Roster Sync)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 }
 
 model MemberGuild {
-  id          String   @id @default(cuid())
-  memberId    String
-  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  guildId     String
-  guild       Guild    @relation(fields: [guildId], references: [id], onDelete: Cascade)
-  
-  rank        String   // Rank within THIS specific guild
-  
-  joinedAt    DateTime @default(now())
-  lastSeenAt  DateTime @default(now())
+  id       String @id @default(cuid())
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  guildId  String
+  guild    Guild  @relation(fields: [guildId], references: [id], onDelete: Cascade)
+
+  rank String // Rank within THIS specific guild
+
+  joinedAt   DateTime @default(now())
+  lastSeenAt DateTime @default(now())
 
   @@unique([memberId, guildId])
 }
@@ -133,14 +132,14 @@ enum HistoryEventType {
 }
 
 model MemberHistory {
-  id          String   @id @default(cuid())
-  
-  memberId    String
-  member      Member   @relation(fields: [memberId], references: [id], onDelete: Cascade)
-  
-  eventType   HistoryEventType
-  oldValue    String?
-  newValue    String?
-  
-  createdAt   DateTime @default(now())
+  id String @id @default(cuid())
+
+  memberId String
+  member   Member @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  eventType HistoryEventType
+  oldValue  String?
+  newValue  String?
+
+  createdAt DateTime @default(now())
 }

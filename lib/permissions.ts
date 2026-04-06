@@ -132,3 +132,16 @@ export function isAuthorizedForGuild(user: AuthUser | null | undefined, guildId:
   if (user.role === "GUILD_LEADER" && user.subGuildIds?.includes(guildId)) return true;
   return false;
 }
+
+/**
+ * Checks if a user has permission to see the rank of a specific guild.
+ * Admins and Alliance Leaders see everything. 
+ * Others only see ranks of guilds they are part of.
+ */
+export function canSeeRank(user: AuthUser | null | undefined, guildId: string): boolean {
+  if (!user) return false;
+  if (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER") return true;
+  
+  // Guild Leaders and Web Members only see ranks for guilds they are part of
+  return !!user.subGuildIds?.includes(guildId);
+}
