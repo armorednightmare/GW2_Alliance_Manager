@@ -24,6 +24,14 @@ export default function ImportManagementClient() {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<any | null>(null);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
+  const [enabledFields, setEnabledFields] = useState<Set<string>>(new Set(TARGET_FIELDS.map(f => f.key)));
+
+  useEffect(() => {
+    // By default, suggest disabling join date if it's found, as per user request
+    if (step === "MAPPING" && mapping.joinedAt && enabledFields.has("joinedAt")) {
+       // Only do this once if it was auto-mapped
+    }
+  }, [step, mapping.joinedAt]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {
@@ -50,6 +58,14 @@ export default function ImportManagementClient() {
         if (found) initialMapping[field.key] = found;
       });
       setMapping(initialMapping);
+      
+      // Auto-disable joinedAt if it was found, as requested
+      const newEnabled = new Set(TARGET_FIELDS.map(f => f.key));
+      if (initialMapping.joinedAt) {
+        newEnabled.delete("joinedAt");
+      }
+      setEnabledFields(newEnabled);
+
       setStep("MAPPING");
     } catch (e: any) {
       alert("Fehler beim Einlesen: " + e.message);
@@ -66,7 +82,11 @@ export default function ImportManagementClient() {
     try {
       const formData = new FormData();
       formData.append("file", file);
-      const data = await analyzeMemberImport(formData, mapping);
+      
+      // Analyze ALL mapped fields so the user can see everything in the preview
+      const activeMapping: Record<string, string> = { ...mapping };
+
+      const data = await analyzeMemberImport(formData, activeMapping);
       setPreview(data);
       setSelectedIndices(new Set(data.map((_: any, i: number) => i)));
       setStep("PREVIEW");
@@ -84,7 +104,39 @@ export default function ImportManagementClient() {
 
     setImporting(true);
     try {
-      const res = await executeMemberImport(items, true);
+      // Filter out fields that are disabled in the UI
+      const preparedItems = items.map(item => {
+        // Deep clone the item and its excelData to avoid side effects
+        const cleaned = { 
+          ...item,
+          excelData: { ...item.excelData }
+        };
+        
+        if (!enabledFields.has("rank")) {
+          cleaned.excelData.rank = null;
+          cleaned.diff.rank.isChanged = false;
+        }
+        if (!enabledFields.has("joinedAt")) {
+          cleaned.excelData.joinedAt = null;
+          cleaned.diff.joinedAt.isChanged = false;
+        }
+        if (!enabledFields.has("discordName")) {
+          cleaned.excelData.discordName = null;
+          cleaned.diff.discordName.isChanged = false;
+        }
+        if (!enabledFields.has("guildName")) {
+          cleaned.excelData.guildName = null;
+          cleaned.diff.guildName.isChanged = false;
+        }
+        if (!enabledFields.has("comment")) {
+          cleaned.excelData.comment = null;
+          cleaned.diff.comment.isChanged = false;
+        }
+        
+        return cleaned;
+      });
+
+      const res = await executeMemberImport(preparedItems, true);
       setResult(res);
       setStep("RESULT");
     } catch (e: any) {
@@ -123,7 +175,13 @@ export default function ImportManagementClient() {
             </label>
           </div>
           {file && (
-            <button onClick={handleReadHeaders} disabled={loading} className="btn-primary" style={{ alignSelf: "center", width: "auto", padding: "0.5rem 2rem" }}>
+            <button 
+              type="button"
+              onClick={(e) => { e.preventDefault(); handleReadHeaders(); }} 
+              disabled={loading} 
+              className="btn-primary" 
+              style={{ alignSelf: "center", width: "auto", padding: "0.5rem 2rem" }}
+            >
               {loading ? "Wird geladen..." : "Spalten zuordnen ➔"}
             </button>
           )}
@@ -140,8 +198,18 @@ export default function ImportManagementClient() {
           
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(250px, 1fr))", gap: "1.5rem" }}>
             {TARGET_FIELDS.map(field => (
-              <div key={field.key} style={{ display: "flex", flexDirection: "column", gap: "0.5rem" }}>
-                <label style={{ fontSize: "0.85rem", fontWeight: "bold" }}>{field.label}</label>
+              <div key={field.key} style={{ 
+                display: "flex", 
+                flexDirection: "column", 
+                gap: "0.5rem",
+                opacity: enabledFields.has(field.key) ? 1 : 0.5,
+                transition: "opacity 0.2s"
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                  <label style={{ fontSize: "0.85rem", fontWeight: "bold" }}>
+                    {field.label}
+                  </label>
+                </div>
                 <select 
                   value={mapping[field.key] || ""} 
                   onChange={(e) => setMapping({...mapping, [field.key]: e.target.value})}
@@ -157,8 +225,20 @@ export default function ImportManagementClient() {
           </div>
 
           <div style={{ display: "flex", justifyContent: "flex-end", gap: "1rem", marginTop: "2rem", borderTop: "1px solid rgba(255,255,255,0.1)", paddingTop: "1.5rem" }}>
-            <button onClick={() => setStep("UPLOAD")} style={{ background: "transparent", border: "none", color: "white", opacity: 0.7, cursor: "pointer" }}>Zurück</button>
-            <button onClick={handleAnalyze} disabled={loading} className="btn-primary" style={{ width: "auto", padding: "0.5rem 2rem" }}>
+            <button 
+              type="button"
+              onClick={(e) => { e.preventDefault(); setStep("UPLOAD"); }} 
+              style={{ background: "transparent", border: "none", color: "white", opacity: 0.7, cursor: "pointer" }}
+            >
+              Zurück
+            </button>
+            <button 
+              type="button"
+              onClick={(e) => { e.preventDefault(); handleAnalyze(); }} 
+              disabled={loading} 
+              className="btn-primary" 
+              style={{ width: "auto", padding: "0.5rem 2rem" }}
+            >
               {loading ? "Verarbeite..." : "Vorschau generieren ➔"}
             </button>
           </div>
@@ -171,8 +251,20 @@ export default function ImportManagementClient() {
           <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
             <h4 style={{ margin: 0 }}>Vorschau ({preview.length} Zeilen)</h4>
             <div style={{ display: "flex", gap: "1rem" }}>
-                <button onClick={() => setStep("MAPPING")} style={{ background: "transparent", color: "white", border: "none", cursor: "pointer", fontSize: "0.9rem", opacity: 0.7 }}>Mapping ändern</button>
-                <button onClick={handleImport} disabled={importing} className="btn-primary" style={{ width: "auto", padding: "0.5rem 2.5rem" }}>
+                <button 
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); setStep("MAPPING"); }} 
+                  style={{ background: "transparent", color: "white", border: "none", cursor: "pointer", fontSize: "0.9rem", opacity: 0.7 }}
+                >
+                  Mapping ändern
+                </button>
+                <button 
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); handleImport(); }} 
+                  disabled={importing} 
+                  className="btn-primary" 
+                  style={{ width: "auto", padding: "0.5rem 2.5rem" }}
+                >
                   {importing ? "Importiere..." : `${selectedIndices.size} Zeilen importieren`}
                 </button>
             </div>
@@ -190,11 +282,22 @@ export default function ImportManagementClient() {
                   </th>
                   <th style={{ padding: "0.75rem", textAlign: "left", width: "80px" }}>Status</th>
                   <th style={{ padding: "0.75rem", textAlign: "left" }}>Account</th>
-                  <th style={{ padding: "0.75rem", textAlign: "left" }}>Rang/Rolle</th>
-                  <th style={{ padding: "0.75rem", textAlign: "left" }}>Beitrittsdatum</th>
-                  <th style={{ padding: "0.75rem", textAlign: "left" }}>Discord</th>
-                  <th style={{ padding: "0.75rem", textAlign: "left" }}>Gilde</th>
-                  <th style={{ padding: "0.75rem", textAlign: "left" }}>Info</th>
+                  {TARGET_FIELDS.slice(1).map(field => (
+                    <th key={field.key} style={{ padding: "0.75rem", textAlign: "left", opacity: enabledFields.has(field.key) ? 1 : 0.5, transition: "opacity 0.2s" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: "0.4rem" }}>
+                        <input 
+                          type="checkbox" 
+                          checked={enabledFields.has(field.key)}
+                          onChange={(e) => {
+                            const next = new Set(enabledFields);
+                            if (e.target.checked) next.add(field.key); else next.delete(field.key);
+                            setEnabledFields(next);
+                          }}
+                        />
+                        {field.label.split(" (")[0]}
+                      </div>
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -216,11 +319,11 @@ export default function ImportManagementClient() {
                     </td>
                     <td style={{ padding: "0.75rem", fontWeight: "bold" }}>{item.accountName}</td>
                     
-                    <DiffCell diff={item.diff.rank} />
-                    <DiffCell diff={item.diff.joinedAt} isDate />
-                    <DiffCell diff={item.diff.discordName} />
-                    <DiffCell diff={item.diff.guildName} />
-                    <DiffCell diff={item.diff.comment} />
+                    <DiffCell diff={item.diff.rank} enabled={enabledFields.has("rank")} />
+                    <DiffCell diff={item.diff.joinedAt} isDate enabled={enabledFields.has("joinedAt")} />
+                    <DiffCell diff={item.diff.discordName} enabled={enabledFields.has("discordName")} />
+                    <DiffCell diff={item.diff.guildName} enabled={enabledFields.has("guildName")} />
+                    <DiffCell diff={item.diff.comment} enabled={enabledFields.has("comment")} />
                   </tr>
                 ))}
               </tbody>
@@ -238,14 +341,21 @@ export default function ImportManagementClient() {
             <strong>{result.updated}</strong> Profile aktualisiert<br />
             {result.errors > 0 && <span style={{ color: "#e74c3c" }}><strong>{result.errors}</strong> Fehler aufgetreten</span>}
           </p>
-          <button onClick={reset} className="btn-primary" style={{ width: "auto", padding: "0.5rem 2rem", marginTop: "1rem" }}>Zurück zur Übersicht</button>
+          <button 
+            type="button"
+            onClick={(e) => { e.preventDefault(); reset(); }} 
+            className="btn-primary" 
+            style={{ width: "auto", padding: "0.5rem 2rem", marginTop: "1rem" }}
+          >
+            Zurück zur Übersicht
+          </button>
         </div>
       )}
     </div>
   );
 }
 
-function DiffCell({ diff, isDate }: { diff: any, isDate?: boolean }) {
+function DiffCell({ diff, isDate, enabled }: { diff: any, isDate?: boolean, enabled?: boolean }) {
   const formatDate = (val: string) => {
     if (!val) return "";
     const d = new Date(val);
@@ -255,6 +365,10 @@ function DiffCell({ diff, isDate }: { diff: any, isDate?: boolean }) {
 
   const oldVal = isDate ? formatDate(diff.old) : diff.old;
   const newVal = isDate ? formatDate(diff.new) : diff.new;
+
+  if (!enabled) {
+    return <td style={{ padding: "0.75rem", opacity: 0.15, fontSize: "0.8rem", fontStyle: "italic" }}>Übersprungen</td>;
+  }
 
   if (!diff.isChanged) {
     return <td style={{ padding: "0.75rem", opacity: 0.5, fontSize: "0.8rem" }}>{newVal || "-"}</td>;

@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import { resolveGuildsFromToken, addGuild, deleteGuild, updateGuildToken, triggerSync, toggleAllianceGuild, addManualGuild } from "./actions";
-import { isHigherStaff } from "@/lib/permissions";
+import { isHigherStaff } from "@/lib/permissions-client";
 
 type GuildInfo = { id: string; name: string; tag: string };
 

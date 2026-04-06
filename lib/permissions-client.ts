@@ -1,0 +1,81 @@
+export type CustomRole = "ADMIN" | "ALLIANCE_LEADER" | "GUILD_LEADER" | "WEB_MEMBER";
+
+export interface AuthUser {
+  id: string;
+  role: CustomRole | string;
+  guildId?: string | null;
+  subGuildIds?: string[]; // Multiple managed guilds
+}
+
+export function canManageUsers(user: AuthUser | null | undefined): boolean {
+  return user?.role === "ADMIN" || user?.role === "ALLIANCE_LEADER";
+}
+
+export function canManageGuilds(user: AuthUser | null | undefined): boolean {
+  return (
+    user?.role === "ADMIN" ||
+    user?.role === "ALLIANCE_LEADER" ||
+    user?.role === "GUILD_LEADER"
+  );
+}
+
+export function isHigherStaff(user: AuthUser | null | undefined): boolean {
+  return user?.role === "ADMIN" || user?.role === "ALLIANCE_LEADER";
+}
+
+export function canEditTheme(user: AuthUser | null | undefined): boolean {
+  return user?.role === "ADMIN" || user?.role === "ALLIANCE_LEADER";
+}
+
+export function canSeeComments(user: AuthUser | null | undefined): boolean {
+  return !!user && (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER" || user.role === "GUILD_LEADER");
+}
+
+export function canEditMember(user: AuthUser | null | undefined, memberGuildIds: string[]): boolean {
+  if (!user) return false;
+  if (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER") return true;
+  
+  if (user.role === "GUILD_LEADER" && user.subGuildIds) {
+    return memberGuildIds.some(id => user.subGuildIds?.includes(id));
+  }
+  return false;
+}
+
+export function getMemberVisibilityFilter(user: AuthUser | null | undefined) {
+  if (user?.role === "ADMIN") return {};
+
+  if (user?.role === "GUILD_LEADER") {
+    const ids = user.subGuildIds || [];
+    return {
+      OR: [
+        { isAllianceMember: true },
+        { guilds: { some: { guildId: { in: ids.length > 0 ? ids : ["none"] } } } },
+        { status: "INACTIVE_LEFT" }
+      ]
+    };
+  }
+
+  if (user?.role === "ALLIANCE_LEADER") {
+    return {
+      OR: [
+        { isAllianceMember: true },
+        { status: "INACTIVE_LEFT" }
+      ]
+    };
+  }
+
+  return { isAllianceMember: true };
+}
+
+export function isAuthorizedForGuild(user: AuthUser | null | undefined, guildId: string): boolean {
+  if (!user) return false;
+  if (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER") return true;
+  if (user.role === "GUILD_LEADER" && user.subGuildIds?.includes(guildId)) return true;
+  return false;
+}
+
+export function canSeeRank(user: AuthUser | null | undefined, guildId: string): boolean {
+  if (!user) return false;
+  if (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER") return true;
+  return !!user.subGuildIds?.includes(guildId);
+}

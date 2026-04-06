@@ -1,36 +1,6 @@
-export type CustomRole = "ADMIN" | "ALLIANCE_LEADER" | "GUILD_LEADER" | "WEB_MEMBER";
+import { AuthUser } from "./permissions-client";
 
-export interface AuthUser {
-  id: string;
-  role: CustomRole | string;
-  guildId?: string | null;
-
-  subGuildIds?: string[]; // Multiple managed guilds
-}
-
-export function canManageUsers(user: AuthUser | null | undefined): boolean {
-  return user?.role === "ADMIN" || user?.role === "ALLIANCE_LEADER";
-}
-
-export function canManageGuilds(user: AuthUser | null | undefined): boolean {
-  return (
-    user?.role === "ADMIN" ||
-    user?.role === "ALLIANCE_LEADER" ||
-    user?.role === "GUILD_LEADER"
-  );
-}
-
-export function isHigherStaff(user: AuthUser | null | undefined): boolean {
-  return user?.role === "ADMIN" || user?.role === "ALLIANCE_LEADER";
-}
-
-export function canEditTheme(user: AuthUser | null | undefined): boolean {
-  return user?.role === "ADMIN" || user?.role === "ALLIANCE_LEADER";
-}
-
-export function canSeeComments(user: AuthUser | null | undefined): boolean {
-  return !!user && (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER" || user.role === "GUILD_LEADER");
-}
+export * from "./permissions-client";
 
 export async function getCommentEventFilter(user: AuthUser | null | undefined) {
   return await getHistoryVisibilityFilter(user);
@@ -38,6 +8,7 @@ export async function getCommentEventFilter(user: AuthUser | null | undefined) {
 
 /**
  * Returns a Prisma filter for MemberHistory visibility based on user role.
+ * This is SERVER-ONLY as it imports Prisma.
  */
 export async function getHistoryVisibilityFilter(user: AuthUser | null | undefined) {
   if (!user || user.role === "WEB_MEMBER") {
@@ -52,6 +23,7 @@ export async function getHistoryVisibilityFilter(user: AuthUser | null | undefin
     const ids = user.subGuildIds || [];
     if (ids.length === 0) return { id: "none" };
     
+    // Server-only: import prisma
     const { prisma } = await import("./prisma");
     const allianceGuilds = await prisma.guild.findMany({ where: { isAllianceGuild: true } });
     const allianceNames = allianceGuilds.map(g => `${g.name} [${g.tag}]`);
@@ -80,68 +52,4 @@ export async function getHistoryVisibilityFilter(user: AuthUser | null | undefin
   }
 
   return { id: "none" };
-}
-
-
-export function canEditMember(user: AuthUser | null | undefined, memberGuildIds: string[]): boolean {
-  if (!user) return false;
-  if (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER") return true;
-  
-  if (user.role === "GUILD_LEADER" && user.subGuildIds) {
-    // Check if there is any overlap between user managed guilds and member guilds
-    return memberGuildIds.some(id => user.subGuildIds?.includes(id));
-  }
-  return false;
-}
-
-/**
- * Returns a Prisma filter object that restricts member visibility based on user role.
- */
-export function getMemberVisibilityFilter(user: AuthUser | null | undefined) {
-  if (user?.role === "ADMIN") return {};
-
-  if (user?.role === "GUILD_LEADER") {
-    const ids = user.subGuildIds || [];
-    return {
-      OR: [
-        { isAllianceMember: true },
-        { guilds: { some: { guildId: { in: ids.length > 0 ? ids : ["none"] } } } },
-        { status: "INACTIVE_LEFT" }
-      ]
-    };
-  }
-
-  if (user?.role === "ALLIANCE_LEADER") {
-    return {
-      OR: [
-        { isAllianceMember: true },
-        { status: "INACTIVE_LEFT" }
-      ]
-    };
-  }
-
-  return { isAllianceMember: true };
-}
-
-/**
- * Helper to check if a user is authorized for a specific guild action
- */
-export function isAuthorizedForGuild(user: AuthUser | null | undefined, guildId: string): boolean {
-  if (!user) return false;
-  if (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER") return true;
-  if (user.role === "GUILD_LEADER" && user.subGuildIds?.includes(guildId)) return true;
-  return false;
-}
-
-/**
- * Checks if a user has permission to see the rank of a specific guild.
- * Admins and Alliance Leaders see everything. 
- * Others only see ranks of guilds they are part of.
- */
-export function canSeeRank(user: AuthUser | null | undefined, guildId: string): boolean {
-  if (!user) return false;
-  if (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER") return true;
-  
-  // Guild Leaders and Web Members only see ranks for guilds they are part of
-  return !!user.subGuildIds?.includes(guildId);
 }

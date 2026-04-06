@@ -448,11 +448,16 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
 
   for (const row of rows) {
     const findValue = (keys: string[], fieldKey?: string) => {
-      // If manual mapping is provided for this field, use it
-      if (manualMapping && fieldKey && manualMapping[fieldKey]) {
-        return row[manualMapping[fieldKey]] || null;
+      // If manual mapping is provided, it is the SOURCE OF TRUTH.
+      // If a fieldKey is NOT in the mapping, it means it's disabled or not mapped.
+      if (manualMapping) {
+        if (fieldKey && manualMapping[fieldKey]) {
+          return row[manualMapping[fieldKey]] ?? null;
+        }
+        return null; // Explicitly disabled or not mapped
       }
-      // Otherwise fallback to fuzzy logic
+
+      // Otherwise fallback to fuzzy logic (only used if no manual mapping provided at all)
       const foundKey = Object.keys(row).find(k => keys.some(alt => k.toLowerCase().includes(alt.toLowerCase())));
       return foundKey ? row[foundKey] : null;
     };
@@ -478,7 +483,6 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
       where: { accountName },
       include: { 
         guilds: { 
-          where: allianceGuild ? { guildId: allianceGuild.id } : {},
           include: { guild: true }
         }
       }
@@ -488,7 +492,7 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
     const conflicts: string[] = [];
     const updates: string[] = [];
     
-    // Structured diff for UI
+    // Default diff structure
     const diff: any = {
       rank: { old: "", new: excelData.rank, isChanged: !!excelData.rank },
       joinedAt: { old: "", new: excelData.joinedAt, isChanged: !!excelData.joinedAt },
@@ -499,61 +503,64 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
 
     if (existing) {
       status = "UPDATE";
-      const allianceMembership = existing.guilds[0];
-      const oldRank = allianceMembership?.rank || "";
-      const oldDiscord = existing.customDiscordName || "";
-      const oldComment = existing.comment || "";
-      const oldJoinedAt = existing.joinedAt?.toISOString() || "";
+      
+      // Helper for robust string comparison
+      const isSame = (a: string | null | undefined, b: string | null | undefined, caseInsensitive = false) => {
+        const valA = (a || "").trim();
+        const valB = (b || "").trim();
+        if (caseInsensitive) return valA.toLowerCase() === valB.toLowerCase();
+        return valA === valB;
+      };
 
-      // 1. Rank
-      if (excelData.rank) {
-        if (oldRank && oldRank !== excelData.rank) {
+      // 1. Rank (Alliance Guild specifically)
+      const allianceMembership = existing.guilds.find(mg => mg.guild.id === allianceGuild?.id);
+      const oldRank = allianceMembership?.rank || "";
+      
+      if (excelData.rank && !isSame(oldRank, excelData.rank, true)) {
+        if (oldRank) {
           status = "CONFLICT";
           conflicts.push(`Rang: DB(${oldRank}) vs Excel(${excelData.rank})`);
           diff.rank = { old: oldRank, new: excelData.rank, isChanged: true, conflict: true };
-        } else if (oldRank !== excelData.rank) {
+        } else {
           updates.push(`Rang: ${excelData.rank} setzen`);
           diff.rank = { old: oldRank, new: excelData.rank, isChanged: true };
-        } else {
-          diff.rank = { old: oldRank, new: oldRank, isChanged: false };
         }
       } else {
         diff.rank = { old: oldRank, new: oldRank, isChanged: false };
       }
 
       // 2. Comment
-      if (excelData.comment) {
-        if (oldComment && oldComment !== excelData.comment) {
+      const oldComment = existing.comment || "";
+      if (excelData.comment && !isSame(oldComment, excelData.comment)) {
+        if (oldComment) {
           status = "CONFLICT";
           conflicts.push(`Kommentar: DB unterscheidet sich`);
           diff.comment = { old: oldComment, new: excelData.comment, isChanged: true, conflict: true };
-        } else if (oldComment !== excelData.comment) {
+        } else {
           updates.push("Kommentar hinzufügen");
           diff.comment = { old: oldComment, new: excelData.comment, isChanged: true };
-        } else {
-          diff.comment = { old: oldComment, new: oldComment, isChanged: false };
         }
       } else {
         diff.comment = { old: oldComment, new: oldComment, isChanged: false };
       }
 
       // 3. Discord
-      if (excelData.discordName) {
-        if (oldDiscord && oldDiscord !== excelData.discordName) {
+      const oldDiscord = existing.customDiscordName || "";
+      if (excelData.discordName && !isSame(oldDiscord, excelData.discordName)) {
+        if (oldDiscord) {
           status = "CONFLICT";
           conflicts.push(`Discord: DB(${oldDiscord}) vs Excel(${excelData.discordName})`);
           diff.discordName = { old: oldDiscord, new: excelData.discordName, isChanged: true, conflict: true };
-        } else if (oldDiscord !== excelData.discordName) {
+        } else {
           updates.push("Discord-Name setzen");
           diff.discordName = { old: oldDiscord, new: excelData.discordName, isChanged: true };
-        } else {
-          diff.discordName = { old: oldDiscord, new: oldDiscord, isChanged: false };
         }
       } else {
         diff.discordName = { old: oldDiscord, new: oldDiscord, isChanged: false };
       }
 
       // 4. JoinedAt
+      const oldJoinedAt = existing.joinedAt?.toISOString() || "";
       if (excelData.joinedAt) {
         const parsed = parseExcelDate(excelData.joinedAt);
         if (parsed) {
@@ -565,13 +572,24 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
           } else {
             diff.joinedAt = { old: oldJoinedAt, new: oldJoinedAt, isChanged: false };
           }
+        } else {
+          diff.joinedAt = { old: oldJoinedAt, new: oldJoinedAt, isChanged: false };
         }
       } else {
         diff.joinedAt = { old: oldJoinedAt, new: oldJoinedAt, isChanged: false };
       }
 
-      // 5. Secondary Guild (simplified diff)
-      diff.guildName = { old: "", new: excelData.guildName, isChanged: !!excelData.guildName };
+      // 5. Secondary Guild (Check ALL memberships)
+      const isAlreadyInGuild = existing.guilds.some(mg => 
+        isSame(mg.guild.name, excelData.guildName, true) || 
+        isSame(mg.guild.tag, excelData.guildName, true)
+      );
+
+      if (excelData.guildName && !isAlreadyInGuild) {
+        diff.guildName = { old: "", new: excelData.guildName, isChanged: true };
+      } else {
+        diff.guildName = { old: "", new: excelData.guildName, isChanged: false };
+      }
     }
 
     preview.push({
@@ -595,35 +613,43 @@ export async function executeMemberImport(selectedItems: any[], overwriteConflic
   const results = { created: 0, updated: 0, errors: 0 };
 
   for (const item of selectedItems) {
-    try {
-      // 1. Upsert Member
-      const updateData: any = {
-        comment: item.comment || undefined,
-        customDiscordName: item.discordName || undefined,
-      };
+    const data = item.excelData;
+    const diff = item.diff; // Use pre-calculated diff
+    if (!data || !diff) continue;
 
-      // Handle raw date from Excel
-      const parsedDate = parseExcelDate(item.joinedAt);
-      if (parsedDate) {
-        updateData.joinedAt = parsedDate;
+    try {
+      // 1. Prepare Update Data: Only include CHANGED fields
+      const updateData: any = {};
+      if (diff.comment?.isChanged) updateData.comment = data.comment || null;
+      if (diff.discordName?.isChanged) updateData.customDiscordName = data.discordName || null;
+      
+      // Handle raw date from Excel only if changed
+      if (diff.joinedAt?.isChanged) {
+        const parsedDate = parseExcelDate(data.joinedAt);
+        if (parsedDate) updateData.joinedAt = parsedDate;
       }
+
+      const isNew = !item.existingId;
 
       const member = await prisma.member.upsert({
         where: { accountName: item.accountName },
         update: updateData,
         create: {
           accountName: item.accountName,
-          ...updateData,
+          comment: data.comment || null,
+          customDiscordName: data.discordName || null,
+          joinedAt: parseExcelDate(data.joinedAt) || null,
           status: "ACTIVE",
           isAllianceMember: true
         }
       });
 
-      if (!item.existingId) results.created++;
+      if (isNew) results.created++;
       else results.updated++;
 
-      // 2. Alliance Guild Membership ("Frog")
-      if (allianceGuild && item.rank) {
+      // 2. Alliance Guild Membership
+      // Only upsert if it's a new member OR the rank has changed
+      if (allianceGuild && (isNew || diff.rank?.isChanged)) {
         await prisma.memberGuild.upsert({
           where: {
             memberId_guildId: {
@@ -631,25 +657,25 @@ export async function executeMemberImport(selectedItems: any[], overwriteConflic
               guildId: allianceGuild.id
             }
           },
-          update: { rank: item.rank },
+          update: { rank: data.rank || "Member" },
           create: {
             memberId: member.id,
             guildId: allianceGuild.id,
-            rank: item.rank
+            rank: data.rank || "Member"
           }
         });
       }
 
-      // 3. Secondary Guild Membership
-      if (item.guildName && item.guildName !== allianceGuild?.name && item.guildName !== allianceGuild?.tag) {
-        // Strip brackets if present (e.g. [GoP] -> GoP)
-        const cleanGuildName = item.guildName.replace(/^\[/, "").replace(/\]$/, "");
+      // 3. Secondary Guild Membership (only if provided)
+      if (data.guildName && data.guildName !== allianceGuild?.name && data.guildName !== allianceGuild?.tag) {
+        // Strip brackets [GoP] -> GoP
+        const cleanGuildName = data.guildName.replace(/^\[/, "").replace(/\]$/, "");
         
         const secondaryGuild = await prisma.guild.findFirst({
           where: {
             OR: [
-              { name: { equals: item.guildName, mode: 'insensitive' } },
-              { tag: { equals: item.guildName, mode: 'insensitive' } },
+              { name: { equals: data.guildName, mode: 'insensitive' } },
+              { tag: { equals: data.guildName, mode: 'insensitive' } },
               { name: { equals: cleanGuildName, mode: 'insensitive' } },
               { tag: { equals: cleanGuildName, mode: 'insensitive' } }
             ]
@@ -664,7 +690,7 @@ export async function executeMemberImport(selectedItems: any[], overwriteConflic
                 guildId: secondaryGuild.id
               }
             },
-            update: {}, // Keep existing rank in secondary guild if already exists
+            update: {}, 
             create: {
               memberId: member.id,
               guildId: secondaryGuild.id,
@@ -674,33 +700,38 @@ export async function executeMemberImport(selectedItems: any[], overwriteConflic
         }
       }
 
-      // 4. Detailed History logging for Import
-      if (!item.existingId) {
+      // 4. Detailed History logging: ONLY for changes
+      if (isNew) {
         await prisma.memberHistory.create({
           data: { memberId: member.id, eventType: "JOINED", newValue: "Via Excel Import" }
         });
       }
 
-      if (item.rank) {
+      if (diff.rank?.isChanged) {
         await prisma.memberHistory.create({
           data: { 
             memberId: member.id, 
             eventType: "RANK_CHANGE", 
-            newValue: item.rank,
-            oldValue: item.status === "CONFLICT" ? "Abweichend" : undefined 
+            newValue: data.rank,
+            oldValue: diff.rank.old || undefined 
           }
         });
       }
 
-      if (item.discordName) {
+      if (diff.discordName?.isChanged) {
         await prisma.memberHistory.create({
-          data: { memberId: member.id, eventType: "DISCORD_NAME_CHANGED", newValue: item.discordName }
+          data: { memberId: member.id, eventType: "DISCORD_NAME_CHANGED", newValue: data.discordName, oldValue: diff.discordName.old || undefined }
         });
       }
 
-      if (item.comment) {
+      if (diff.comment?.isChanged) {
         await prisma.memberHistory.create({
-          data: { memberId: member.id, eventType: "COMMENT_ADDED", newValue: item.comment }
+          data: { 
+            memberId: member.id, 
+            eventType: diff.comment.old ? "COMMENT_CHANGED" : "COMMENT_ADDED", 
+            newValue: data.comment,
+            oldValue: diff.comment.old || undefined
+          }
         });
       }
 
@@ -711,7 +742,6 @@ export async function executeMemberImport(selectedItems: any[], overwriteConflic
   }
 
   revalidatePath("/members");
-  revalidatePath("/admin");
   return results;
 }
 
