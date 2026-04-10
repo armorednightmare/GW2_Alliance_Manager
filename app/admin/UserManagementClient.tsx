@@ -344,7 +344,7 @@ export default function UserManagementClient({ users, guilds }: { users: User[],
                       ))}
                     </select>
 
-                    {u.role === "GUILD_LEADER" && (
+                    {(u.role === "GUILD_LEADER" || u.role === "ALLIANCE_LEADER") && (
                       <div style={{ display: "flex", flexDirection: "column", gap: "0.4rem", marginTop: "0.2rem" }}>
                         <label style={{ fontSize: "0.75rem", opacity: 0.6 }}>Verwaltete Gilden:</label>
                         <div style={{ 
