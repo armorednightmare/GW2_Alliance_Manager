@@ -266,7 +266,7 @@ export default function GuildManagementClient({ guilds, session }: { guilds: Gui
                   </td>
                   <td style={{ padding: "0.8rem 1rem", textAlign: "center" }}>
                     {(() => {
-                      const canToggle = user.role === "ADMIN" || (user.role === "GUILD_LEADER" && user.subGuildIds?.includes(g.id));
+                      const canToggle = user.role === "ADMIN" || user.subGuildIds?.includes(g.id);
                       return (
                         <input 
                           type="checkbox" 

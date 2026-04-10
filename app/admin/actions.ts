@@ -393,7 +393,7 @@ export async function toggleGuildPublicRanks(guildId: string, status: boolean) {
   let authorized = false;
   if (user.role === "ADMIN") {
     authorized = true;
-  } else if (user.role === "GUILD_LEADER" && (user.subGuildIds || []).includes(guildId)) {
+  } else if ((user.subGuildIds || []).includes(guildId)) {
     authorized = true;
   }
 
