@@ -22,7 +22,7 @@ export default async function MembersPage() {
     ...m,
     guilds: m.guilds.map(mg => ({
       ...mg,
-      rank: canSeeRank(user, mg.guildId) ? mg.rank : "Versteckt"
+      rank: canSeeRank(user, mg.guild) ? mg.rank : ""
     }))
   }));
 

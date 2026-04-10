@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { resolveGuildsFromToken, addGuild, deleteGuild, updateGuildToken, triggerSync, toggleAllianceGuild, addManualGuild } from "./actions";
+import { resolveGuildsFromToken, addGuild, deleteGuild, updateGuildToken, triggerSync, toggleAllianceGuild, addManualGuild, toggleGuildPublicRanks } from "./actions";
 import { isHigherStaff } from "@/lib/permissions-client";
 
 type GuildInfo = { id: string; name: string; tag: string };
@@ -13,6 +13,7 @@ interface GuildMember {
   name: string;
   tag: string;
   isAllianceGuild: boolean;
+  publicRanks: boolean;
 }
 
 interface UserSession {
@@ -174,6 +175,18 @@ export default function GuildManagementClient({ guilds, session }: { guilds: Gui
     setBusy(false);
   };
 
+  const handleTogglePublicRanks = async (guildId: string, currentStatus: boolean) => {
+    setBusy(true);
+    try {
+      await toggleGuildPublicRanks(guildId, !currentStatus);
+      setLocalGuilds((prev: GuildMember[]) => prev.map(g => g.id === guildId ? { ...g, publicRanks: !currentStatus } : g));
+      feedback(`Sichtbarkeit aktualisiert ✓`);
+    } catch (e: any) {
+      feedback(e.message, true);
+    }
+    setBusy(false);
+  };
+
   const handleSync = async () => {
     setBusy(true);
     setSyncLogs([]);
@@ -215,6 +228,7 @@ export default function GuildManagementClient({ guilds, session }: { guilds: Gui
                 <th style={{ padding: "0.8rem 1rem", textAlign: "left", opacity: 0.7, fontWeight: 600 }}>{isStaff ? "Typ" : ""}</th>
                 <th style={{ padding: "0.8rem 1rem", textAlign: "left", opacity: 0.7, fontWeight: 600 }}>Gilde</th>
                 <th style={{ padding: "0.8rem 1rem", textAlign: "left", opacity: 0.7, fontWeight: 600 }}>Tag</th>
+                <th style={{ padding: "0.8rem 1rem", textAlign: "center", opacity: 0.7, fontWeight: 600 }}>Öffentl. Ränge</th>
                 <th style={{ padding: "0.8rem 1rem", textAlign: "left", opacity: 0.7, fontWeight: 600 }}>Guild ID</th>
                 <th style={{ padding: "0.8rem 1rem", textAlign: "left", opacity: 0.7, fontWeight: 600 }}>Leader Token aktualisieren</th>
                 {isStaff && <th style={{ padding: "0.8rem 1rem", textAlign: "left", opacity: 0.7, fontWeight: 600 }}>Aktionen</th>}
@@ -248,6 +262,16 @@ export default function GuildManagementClient({ guilds, session }: { guilds: Gui
                     <span style={{ background: "var(--primary-color)", padding: "0.2rem 0.5rem", borderRadius: "4px", fontSize: "0.85rem" }}>
                       [{g.tag}]
                     </span>
+                  </td>
+                  <td style={{ padding: "0.8rem 1rem", textAlign: "center" }}>
+                    <input 
+                      type="checkbox" 
+                      checked={g.publicRanks} 
+                      onChange={() => handleTogglePublicRanks(g.id, g.publicRanks)}
+                      disabled={busy}
+                      style={{ cursor: "pointer", width: "18px", height: "18px", accentColor: "var(--accent-color)" }}
+                      title="Falls deaktiviert, sehen nur Admins und Gildenleiter dieser Gilde die Ränge."
+                    />
                   </td>
                   <td style={{ padding: "0.8rem 1rem", fontFamily: "monospace", fontSize: "0.75rem", opacity: 0.7 }}>
                     {g.id.slice(0, 14)}…

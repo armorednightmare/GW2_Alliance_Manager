@@ -30,7 +30,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
   // Mask ranks for guilds the user is not part of
   const maskedGuilds = member.guilds.map(mg => ({
     ...mg,
-    rank: canSeeRank(user, mg.guildId) ? mg.rank : "Versteckt"
+    rank: canSeeRank(user, mg.guild) ? mg.rank : ""
   }));
 
   const memberGuildIds = member.guilds.map(g => g.guildId);
@@ -44,11 +44,11 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
       if (tagMatch) {
          const tag = tagMatch[1];
          const guild = member.guilds.find(mg => mg.guild.tag === tag);
-         if (guild && !canSeeRank(user, guild.guildId)) {
+         if (guild && !canSeeRank(user, guild.guild)) {
            return {
              ...item,
-             oldValue: item.oldValue ? "Versteckt" : null,
-             newValue: item.newValue ? "Versteckt" : null
+             oldValue: item.oldValue ? "" : null,
+             newValue: item.newValue ? "" : null
            };
          }
       }
@@ -113,7 +113,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                     </form>
                   )}
                 </div>
-                <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Rang: {mg.rank}</div>
+                {mg.rank && <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Rang: {mg.rank}</div>}
               </div>
             ))}
             {member.guilds.length === 0 && <p style={{ opacity: 0.6 }}>Keinen Gilden zugeordnet.</p>}

@@ -385,6 +385,17 @@ export async function updateGuildToken(guildId: string, leaderToken: string) {
   revalidatePath("/admin");
 }
 
+export async function toggleGuildPublicRanks(guildId: string, status: boolean) {
+  await requireGuildPermission(guildId);
+  await prisma.guild.update({
+    where: { id: guildId },
+    data: { publicRanks: status },
+  });
+  revalidatePath("/admin");
+  revalidatePath("/members");
+  revalidatePath(`/members/[id]`, "page");
+}
+
 export async function triggerSync() {
   const session = (await getServerSession(authOptions)) as UserSession | null;
   if (!session) throw new Error("Nicht eingeloggt");

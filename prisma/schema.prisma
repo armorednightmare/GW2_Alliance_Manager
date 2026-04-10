@@ -66,8 +66,9 @@ model Guild {
   isManual        Boolean @default(false) // Flag for non-API guilds
 
   // Junction table for members
-  members  MemberGuild[]
-  managers User[]        @relation("GuildManagers")
+  members         MemberGuild[]
+  managers        User[]        @relation("GuildManagers")
+  publicRanks     Boolean       @default(true)
 }
 
 enum MemberStatus {
