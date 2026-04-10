@@ -23,6 +23,7 @@ interface UserSession {
     image?: string | null;
     role: string;
     id: string;
+    subGuildIds?: string[];
   };
 }
 
@@ -264,14 +265,19 @@ export default function GuildManagementClient({ guilds, session }: { guilds: Gui
                     </span>
                   </td>
                   <td style={{ padding: "0.8rem 1rem", textAlign: "center" }}>
-                    <input 
-                      type="checkbox" 
-                      checked={g.publicRanks} 
-                      onChange={() => handleTogglePublicRanks(g.id, g.publicRanks)}
-                      disabled={busy}
-                      style={{ cursor: "pointer", width: "18px", height: "18px", accentColor: "var(--accent-color)" }}
-                      title="Falls deaktiviert, sehen nur Admins und Gildenleiter dieser Gilde die Ränge."
-                    />
+                    {(() => {
+                      const canToggle = user.role === "ADMIN" || (user.role === "GUILD_LEADER" && user.subGuildIds?.includes(g.id));
+                      return (
+                        <input 
+                          type="checkbox" 
+                          checked={g.publicRanks} 
+                          onChange={() => handleTogglePublicRanks(g.id, g.publicRanks)}
+                          disabled={busy || !canToggle}
+                          style={{ cursor: canToggle ? "pointer" : "not-allowed", width: "18px", height: "18px", accentColor: "var(--accent-color)", opacity: canToggle ? 1 : 0.4 }}
+                          title={canToggle ? "Falls deaktiviert, sehen nur Admins und Gildenleiter dieser Gilde die Ränge." : "Nur Admins und Gildenleiter dieser Gilde können dies ändern."}
+                        />
+                      );
+                    })()}
                   </td>
                   <td style={{ padding: "0.8rem 1rem", fontFamily: "monospace", fontSize: "0.75rem", opacity: 0.7 }}>
                     {g.id.slice(0, 14)}…

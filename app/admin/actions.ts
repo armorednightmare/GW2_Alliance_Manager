@@ -386,7 +386,21 @@ export async function updateGuildToken(guildId: string, leaderToken: string) {
 }
 
 export async function toggleGuildPublicRanks(guildId: string, status: boolean) {
-  await requireGuildPermission(guildId);
+  const session = (await getServerSession(authOptions)) as UserSession | null;
+  if (!session) throw new Error("Nicht eingeloggt");
+  const user = session.user;
+
+  let authorized = false;
+  if (user.role === "ADMIN") {
+    authorized = true;
+  } else if (user.role === "GUILD_LEADER" && (user.subGuildIds || []).includes(guildId)) {
+    authorized = true;
+  }
+
+  if (!authorized) {
+    throw new Error("Keine Berechtigung, diese Einstellung zu ändern. Nur Admins oder Gildenleiter dieser Gilde dürfen dies tun.");
+  }
+
   await prisma.guild.update({
     where: { id: guildId },
     data: { publicRanks: status },
