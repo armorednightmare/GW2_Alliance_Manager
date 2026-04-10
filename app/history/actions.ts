@@ -54,11 +54,11 @@ export async function fetchHistoryLogs(page: number, limit: number, search: stri
       if (tagMatch) {
          const tag = tagMatch[1];
          const guild = h.member?.guilds.find((mg: any) => mg.guild.tag === tag);
-         if (guild && !canSeeRank(user, guild.guildId)) {
+         if (guild && !canSeeRank(user, guild.guild)) {
            return {
              ...h,
-             oldValue: h.oldValue ? "Versteckt" : null,
-             newValue: h.newValue ? "Versteckt" : null
+             oldValue: h.oldValue ? "" : null,
+             newValue: h.newValue ? "" : null
            };
          }
       }
