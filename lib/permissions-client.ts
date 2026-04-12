@@ -5,6 +5,7 @@ export interface AuthUser {
   role: CustomRole | string;
   guildId?: string | null;
   subGuildIds?: string[]; // Multiple managed guilds
+  memberGuildIds?: string[]; // Guilds they are a member of
 }
 
 export function canManageUsers(user: AuthUser | null | undefined): boolean {
@@ -78,6 +79,7 @@ export function canSeeRank(user: AuthUser | null | undefined, guild: { id: strin
   if (!user) return false;
   if (user.role === "ADMIN") return true;
   if (user.subGuildIds?.includes(guild.id)) return true; // Managed by this user
+  if (user.memberGuildIds?.includes(guild.id)) return true; // Member of this guild
 
   // If publicRanks is true, Alliance Leader and regional Guild Leaders can see it.
   // Otherwise, only the above (Admin & Managers) can see it.

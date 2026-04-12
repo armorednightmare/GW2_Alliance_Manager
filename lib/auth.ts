@@ -98,6 +98,7 @@ export const authOptions: NextAuthOptions = {
           managedIds = allMemberGuilds.map(mg => mg.guildId);
         }
         token.subGuildIds = managedIds;
+        token.memberGuildIds = allMemberGuilds.map(mg => mg.guildId);
       }
 
       return token;
@@ -111,6 +112,7 @@ export const authOptions: NextAuthOptions = {
         session.user.role = token.role;
         session.user.guildId = token.guildId;
         session.user.subGuildIds = token.subGuildIds || [];
+        session.user.memberGuildIds = token.memberGuildIds || [];
       }
       return session;
     }
