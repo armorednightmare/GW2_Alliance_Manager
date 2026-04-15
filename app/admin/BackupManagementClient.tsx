@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { triggerManualBackup, getBackupList } from "./actions";
+import { triggerManualBackup, getBackupList, unlinkBackupAccount } from "./actions";
 
 interface BackupFile {
   id: string;
@@ -10,7 +10,7 @@ interface BackupFile {
   createdTime: string;
 }
 
-export default function BackupManagementClient({ initialBackups }: { initialBackups: BackupFile[] }) {
+export default function BackupManagementClient({ initialBackups, backupEmail }: { initialBackups: BackupFile[], backupEmail?: string | null }) {
   const [backups, setBackups] = useState<BackupFile[]>(initialBackups);
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
@@ -30,6 +30,13 @@ export default function BackupManagementClient({ initialBackups }: { initialBack
         setMessage({ type: "error", text: `❌ Fehler: ${e.message}` });
       }
     });
+  };
+
+  const handleUnlink = async () => {
+    if (!confirm("Möchtest du die Verknüpfung zu Google Drive wirklich trennen?")) return;
+    await unlinkBackupAccount();
+    setMessage({ type: "success", text: "✅ Verknüpfung getrennt." });
+    setBackups([]);
   };
 
   const refreshList = async () => {
@@ -52,6 +59,29 @@ export default function BackupManagementClient({ initialBackups }: { initialBack
           <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.7 }}>
             Hier kannst du sofort ein Backup erzwingen oder die Liste deiner Dateien auf Google Drive einsehen.
           </p>
+          <div style={{ marginTop: "1rem", display: "flex", alignItems: "center", gap: "1rem" }}>
+            {backupEmail ? (
+              <>
+                <div style={{ fontSize: "0.85rem", padding: "0.3rem 0.6rem", background: "rgba(46, 204, 113, 0.1)", border: "1px solid rgba(46, 204, 113, 0.3)", borderRadius: "4px", color: "#2ecc71" }}>
+                  ✅ Verknüpft mit {backupEmail}
+                </div>
+                <button 
+                  onClick={handleUnlink}
+                  style={{ background: "transparent", border: "none", color: "#e74c3c", fontSize: "0.8rem", cursor: "pointer", textDecoration: "underline" }}
+                >
+                  Verknüpfung trennen
+                </button>
+              </>
+            ) : (
+              <a 
+                href="/api/admin/backup/link"
+                className="btn-primary"
+                style={{ width: "auto", padding: "0.4rem 1rem", fontSize: "0.85rem", textDecoration: "none", display: "inline-block" }}
+              >
+                🔑 Google Drive jetzt verknüpfen
+              </a>
+            )}
+          </div>
         </div>
         <div style={{ display: "flex", gap: "0.5rem" }}>
           <button 

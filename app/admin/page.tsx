@@ -153,7 +153,7 @@ export default async function AdminPage() {
                   <button type="submit" className="btn-primary">Backup-Plan Speichern</button>
                 </div>
               </form>
-              <BackupManagementClient initialBackups={initialBackups} />
+              <BackupManagementClient initialBackups={initialBackups} backupEmail={settings?.backupEmail} />
             </div>
           )}
         </div>

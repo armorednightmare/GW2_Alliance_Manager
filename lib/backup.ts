@@ -3,6 +3,8 @@ import { exec } from 'child_process';
 import util from 'util';
 import fs from 'fs';
 import path from 'path';
+import { prisma } from './prisma';
+import { decrypt } from './crypto';
 
 const execAsync = util.promisify(exec);
 
@@ -15,10 +17,27 @@ const MAX_BACKUPS = process.env.MAX_BACKUPS ? parseInt(process.env.MAX_BACKUPS) 
 export async function getGoogleDriveClient() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
-  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  
+  // 1. Try Database (Encrypted)
+  const settings = await prisma.systemSettings.findFirst();
+  let refreshToken = settings?.backupRefreshToken;
+  
+  if (refreshToken) {
+    try {
+      refreshToken = decrypt(refreshToken);
+    } catch (e: any) {
+      console.error("❌ Fehler beim Entschlüsseln des Backup-Tokens:", e.message);
+      refreshToken = null;
+    }
+  }
+
+  // 2. Fallback to Environment Variable
+  if (!refreshToken) {
+    refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+  }
 
   if (!clientId || !clientSecret || !refreshToken) {
-    throw new Error("GOOGLE_REFRESH_TOKEN oder Client Credentials fehlen.");
+    throw new Error("Weder verschlüsselter DB-Token noch GOOGLE_REFRESH_TOKEN in .env gefunden.");
   }
 
   const auth = new google.auth.OAuth2(clientId, clientSecret);

@@ -17,6 +17,9 @@ model SystemSettings {
   colorBg         String  @default("#121212")
   apiSyncInterval Int     @default(60) // in minutes
   backupCronSchedule String @default("0 3 * * 0")
+  
+  backupRefreshToken String? // Encrypted 
+  backupEmail        String? // To show which account is linked
 }
 
 // ====== ROLES ======

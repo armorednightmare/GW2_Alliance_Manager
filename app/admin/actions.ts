@@ -138,6 +138,21 @@ export async function getBackupList() {
   }
 }
 
+export async function unlinkBackupAccount() {
+  await requireAdmin();
+  const settings = await prisma.systemSettings.findFirst();
+  if (settings) {
+    await prisma.systemSettings.update({
+      where: { id: settings.id },
+      data: {
+        backupRefreshToken: null,
+        backupEmail: null,
+      }
+    });
+  }
+  revalidatePath("/admin");
+}
+
 // ── User Management ──────────────────────────────────────────────────────────
 export async function changeUserRole(userId: string, role: string) {
   await requireAdmin();
