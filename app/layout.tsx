@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import "./globals.css";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
@@ -36,7 +37,10 @@ export default async function RootLayout({
 
   let allianceName = settings?.allianceName;
   if (!allianceName) {
-    const allianceGuild = await prisma.guild.findFirst({ where: { isAllianceGuild: true } });
+    let allianceGuild = null;
+    try {
+      allianceGuild = await prisma.guild.findFirst({ where: { isAllianceGuild: true } });
+    } catch (e) {}
     allianceName = allianceGuild ? `${allianceGuild.name} [${allianceGuild.tag}]` : "Allianz Manager";
   }
 

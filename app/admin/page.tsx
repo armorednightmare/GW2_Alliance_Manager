@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { saveThemeSettings, saveSyncSettings, saveBackupSettings } from "./actions";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";

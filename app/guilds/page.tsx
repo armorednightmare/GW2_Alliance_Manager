@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import { prisma } from "@/lib/prisma";
 import GuildsClient from "./GuildsClient";
 import "../members/Members.css"; // Reuse styling for data tables

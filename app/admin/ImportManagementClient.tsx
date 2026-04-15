@@ -26,12 +26,6 @@ export default function ImportManagementClient() {
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [enabledFields, setEnabledFields] = useState<Set<string>>(new Set(TARGET_FIELDS.map(f => f.key)));
 
-  useEffect(() => {
-    // By default, suggest disabling join date if it's found, as per user request
-    if (step === "MAPPING" && mapping.joinedAt && enabledFields.has("joinedAt")) {
-       // Only do this once if it was auto-mapped
-    }
-  }, [step, mapping.joinedAt]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files?.[0]) {

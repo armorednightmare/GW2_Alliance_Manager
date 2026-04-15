@@ -1,3 +1,4 @@
+export const dynamic = 'force-dynamic';
 import LoginClient from "./LoginClient";
 
 // Check on server side whether OAuth secrets are configured

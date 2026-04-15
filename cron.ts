@@ -1,7 +1,7 @@
 import { prisma } from "./lib/prisma";
 import { syncAllGuildRosters } from "./lib/gw2api";
 import { runDatabaseBackup } from "./lib/backup";
-import cron from "node-cron";
+import cron, { ScheduledTask } from "node-cron";
 
 async function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
@@ -9,7 +9,7 @@ async function sleep(ms: number) {
 
 // Dynamic Backup Cron Logic
 let currentBackupSchedule: string = '0 3 * * 0'; // default
-let currentBackupCronTask: cron.ScheduledTask | null = null;
+let currentBackupCronTask: ScheduledTask | null = null;
 
 function applyBackupSchedule(schedule: string) {
   if (currentBackupCronTask) {
