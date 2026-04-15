@@ -38,14 +38,14 @@ export default async function Dashboard() {
       <h1>{allianceName} Dashboard</h1>
 
       <div className="stats-row">
-        <div className="stat-card">
-          <h3>Aktive Spieler</h3>
+        <Link href="/members" className="stat-card" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+          <h3>Mitglieder</h3>
           <p className="stat-value">{totalMembers}</p>
-        </div>
-        <div className="stat-card">
-          <h3>Gilden in der Allianz</h3>
+        </Link>
+        <Link href="/guilds" className="stat-card" style={{ textDecoration: 'none', color: 'inherit', display: 'block' }}>
+          <h3>Gilden</h3>
           <p className="stat-value">{totalSubGuilds}</p>
-        </div>
+        </Link>
       </div>
 
       <div className="dashboard-grid">

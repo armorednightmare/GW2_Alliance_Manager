@@ -44,7 +44,7 @@ export default async function GuildsPage() {
 
   return (
     <div>
-      <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)"}}>Gilden der Allianz</h1>
+      <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)"}}>Gilden</h1>
       <p style={{ opacity: 0.8 }}>Hier sehen Sie alle verknüpften Gilden, deren Mitgliederanzahl und den Anteil zur Allianz. Anklicken der Köpfe sortiert die Tabelle.</p>
       
       <GuildsClient initialGuilds={guildsWithStats} totalAllianceMembers={totalAllianceMembers} />

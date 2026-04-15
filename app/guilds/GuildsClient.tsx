@@ -86,12 +86,11 @@ export default function GuildsClient({ initialGuilds, totalAllianceMembers }: { 
             </tr>
           </thead>
           <tbody>
-            {filteredGuilds.map((g: any) => {
+            {filteredGuilds.filter((g: any) => !g.isAllianceGuild).map((g: any) => {
               const allianceShare = totalAllianceMembers > 0 ? Math.round((g.wvwActive / totalAllianceMembers) * 100) : 0;
               return (
-                <tr key={g.id} style={g.isAllianceGuild ? { background: 'rgba(102,252,241,0.05)' } : {}}>
+                <tr key={g.id}>
                   <td>
-                    {g.isAllianceGuild && <span style={{ marginRight: '8px', color: 'var(--accent-color)' }} title="Haupt-Allianzgilde">⚔️</span>}
                     <strong>{g.name}</strong> <span className="guild-tag" style={{opacity: 0.6}}>[{g.tag}]</span>
                   </td>
                   <td>{g.hasLeaderToken ? '✅ API-Key hinterlegt' : '❌ Kein API-Key'}</td>
@@ -106,6 +105,34 @@ export default function GuildsClient({ initialGuilds, totalAllianceMembers }: { 
                 </tr>
               );
             })}
+            
+            {filteredGuilds.filter((g: any) => g.isAllianceGuild).length > 0 && filteredGuilds.filter((g: any) => !g.isAllianceGuild).length > 0 && (
+              <tr style={{ height: '3rem', background: 'transparent' }}>
+                <td colSpan={5} style={{ borderBottom: 'none', padding: 0 }}></td>
+              </tr>
+            )}
+
+            {filteredGuilds.filter((g: any) => g.isAllianceGuild).map((g: any) => {
+              const allianceShare = totalAllianceMembers > 0 ? Math.round((g.wvwActive / totalAllianceMembers) * 100) : 0;
+              return (
+                <tr key={g.id} style={{ background: 'rgba(102,252,241,0.08)', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
+                  <td style={{ borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)' }}>
+                    <span style={{ marginRight: '8px', color: 'var(--accent-color)' }} title="Haupt-Allianzgilde">⚔️</span>
+                    <strong style={{ fontSize: '1.05rem' }}>{g.name}</strong> <span className="guild-tag" style={{opacity: 0.8}}>[{g.tag}]</span>
+                  </td>
+                  <td style={{ borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)' }}>{g.hasLeaderToken ? '✅ API-Key hinterlegt' : '❌ Kein API-Key'}</td>
+                  <td style={{textAlign:"right", fontFamily: "monospace", fontSize: "1.1rem", borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)'}}>{g.totalActive}</td>
+                  <td style={{textAlign:"right", fontFamily: "monospace", fontSize: "1.1rem", borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)'}}>{g.wvwActive}</td>
+                  <td style={{textAlign:"right", width: "200px", borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)'}}>
+                    <div style={{ display: 'inline-block', backgroundColor: 'rgba(255,255,255,0.1)', width: '100px', height: '10px', borderRadius: '5px', overflow: 'hidden', verticalAlign: 'middle', marginRight: '10px' }}>
+                      <div style={{ backgroundColor: 'var(--accent-color)', width: `${allianceShare}%`, height: '100%' }}></div>
+                    </div>
+                    {allianceShare}%
+                  </td>
+                </tr>
+              );
+            })}
+
             {filteredGuilds.length === 0 && (
               <tr>
                 <td colSpan={5} style={{ textAlign: 'center', padding: '3rem' }}>
