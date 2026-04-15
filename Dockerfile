@@ -1,6 +1,6 @@
 # Base image for building
 FROM node:20-alpine AS base
-RUN apk add --no-cache libc6-compat openssl
+RUN apk add --no-cache libc6-compat openssl postgresql-client
 
 # 1. Install dependencies only when needed
 FROM base AS deps

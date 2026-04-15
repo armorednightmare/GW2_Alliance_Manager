@@ -60,6 +60,7 @@ Weitere Details finden Sie in den spezifischen Dokumenten:
 - [Bereitstellungs-Guide (Externes Hosting)](docs/DEPLOYMENT.md)
 - [OAuth Setup Guide (Discord & Google)](docs/OAUTH_SETUP.md)
 - [User-Guide (Wiki)](docs/USER_GUIDE.md)
+- [Automatisierte Google Drive Backups](docs/BACKUP_SETUP.md)
 
 ---
 Entwickelt für die Guild Wars 2 Community.

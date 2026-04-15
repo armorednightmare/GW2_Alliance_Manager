@@ -5,7 +5,7 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install dependencies needed for Prisma
-RUN apk add --no-cache openssl
+RUN apk add --no-cache openssl postgresql-client
 
 # Package.json will be copied/mounted via volume in compose
 # But we can copy it initially just in case

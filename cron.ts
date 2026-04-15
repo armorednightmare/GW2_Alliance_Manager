@@ -1,9 +1,21 @@
 import { prisma } from "./lib/prisma";
 import { syncAllGuildRosters } from "./lib/gw2api";
+import { runDatabaseBackup } from "./lib/backup";
+import cron from "node-cron";
 
 async function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
+
+// Schedule weekly DB Backup to run every Sunday at 03:00 AM
+cron.schedule('0 3 * * 0', async () => {
+  console.log("⏰ Cron Trigger: Scheduled Weekly Database Backup");
+  try {
+    await runDatabaseBackup();
+  } catch (e: any) {
+    console.error("❌ Uncaught exception in Database Backup job:", e);
+  }
+});
 
 async function runCron() {
   console.log("🛠️ Background Auto-Sync Worker started.");
