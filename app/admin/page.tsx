@@ -8,6 +8,8 @@ import UserManagementClient from "./UserManagementClient";
 import GuildManagementClient from "./GuildManagementClient";
 import RoleManagementClient from "./RoleManagementClient";
 import ImportManagementClient from "./ImportManagementClient";
+import BackupManagementClient from "./BackupManagementClient";
+import { getBackupList } from "./actions";
 import { canManageUsers, canManageGuilds, canEditTheme, isHigherStaff } from "@/lib/permissions";
 
 const PANEL_STYLE = {
@@ -65,6 +67,8 @@ export default async function AdminPage() {
   const manualRoles = isHigherStaff(user)
     ? await prisma.manualRole.findMany({ orderBy: { name: "asc" } })
     : [];
+
+  const initialBackups = user.role === "ADMIN" ? await getBackupList() : [];
 
   return (
     <div>
@@ -149,6 +153,7 @@ export default async function AdminPage() {
                   <button type="submit" className="btn-primary">Backup-Plan Speichern</button>
                 </div>
               </form>
+              <BackupManagementClient initialBackups={initialBackups} />
             </div>
           )}
         </div>

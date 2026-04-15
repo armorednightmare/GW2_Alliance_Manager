@@ -9,55 +9,67 @@ const execAsync = util.promisify(exec);
 const FOLDER_NAME = 'GW2 Backups';
 const MAX_BACKUPS = process.env.MAX_BACKUPS ? parseInt(process.env.MAX_BACKUPS) : 4;
 
-export async function runDatabaseBackup() {
-  console.log("🔒 Starting automated Database Backup...");
-
+/**
+ * Returns an authenticated Google Drive client and the target folder ID.
+ */
+export async function getGoogleDriveClient() {
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
 
   if (!clientId || !clientSecret || !refreshToken) {
-    console.log("ℹ️ GOOGLE_REFRESH_TOKEN oder Client Credentials fehlen. Backup übersprungen.");
-    return;
+    throw new Error("GOOGLE_REFRESH_TOKEN oder Client Credentials fehlen.");
   }
 
   const auth = new google.auth.OAuth2(clientId, clientSecret);
   auth.setCredentials({ refresh_token: refreshToken });
 
   const drive = google.drive({ version: 'v3', auth });
-  
-  // 1. Find or Use Target Folder
+
+  // Find or Use Target Folder
   let targetFolderId = process.env.GOOGLE_DRIVE_FOLDER_ID || null;
   
   if (!targetFolderId) {
-    try {
-      const res = await drive.files.list({
-        q: `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`,
-        fields: 'files(id, name)',
-        spaces: 'drive',
+    const res = await drive.files.list({
+      q: `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`,
+      fields: 'files(id, name)',
+      spaces: 'drive',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
+    });
+    
+    if (res.data.files && res.data.files.length > 0) {
+      targetFolderId = res.data.files[0].id!;
+    } else {
+      const folderRes = await drive.files.create({
+        requestBody: {
+          name: FOLDER_NAME,
+          mimeType: 'application/vnd.google-apps.folder',
+        },
+        fields: 'id',
         supportsAllDrives: true,
-        includeItemsFromAllDrives: true,
       });
-      
-      if (res.data.files && res.data.files.length > 0) {
-        targetFolderId = res.data.files[0].id!;
-      } else {
-        // Fallback: Create folder (it will be isolated in the Service Account's own drive unless shared back)
-        const folderRes = await drive.files.create({
-          requestBody: {
-            name: FOLDER_NAME,
-            mimeType: 'application/vnd.google-apps.folder',
-          },
-          fields: 'id',
-          supportsAllDrives: true,
-        });
-        targetFolderId = folderRes.data.id!;
-        console.log(`📁 Target folder not found. Created Service-Account-owned Folder id: ${targetFolderId}`);
-      }
-    } catch (e: any) {
-      console.error("❌ Failed to find or create Google Drive Folder:", e.message);
-      return;
+      targetFolderId = folderRes.data.id!;
+      console.log(`📁 Erstellter Backup-Ordner id: ${targetFolderId}`);
     }
+  }
+
+  return { drive, targetFolderId };
+}
+
+export async function runDatabaseBackup() {
+  console.log("🔒 Starting automated Database Backup...");
+
+  let drive;
+  let targetFolderId;
+
+  try {
+    const driveInfo = await getGoogleDriveClient();
+    drive = driveInfo.drive;
+    targetFolderId = driveInfo.targetFolderId;
+  } catch (e: any) {
+    console.log(`ℹ️ ${e.message} Backup übersprungen.`);
+    return;
   }
 
   // 2. Dump the database

@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { runDatabaseBackup, getGoogleDriveClient } from "@/lib/backup";
 
 // ── Helpers: Role Checks ─────────────────────────────────────────────────────
 interface UserSession {
@@ -108,6 +109,33 @@ export async function saveBackupSettings(data: FormData) {
     });
   }
   revalidatePath("/admin");
+}
+
+export async function triggerManualBackup() {
+  await requireAdmin();
+  try {
+    await runDatabaseBackup();
+    revalidatePath("/admin");
+    return { success: true };
+  } catch (e: any) {
+    throw new Error(`Backup fehlgeschlagen: ${e.message}`);
+  }
+}
+
+export async function getBackupList() {
+  await requireAdmin();
+  try {
+    const { drive, targetFolderId } = await getGoogleDriveClient();
+    const res = await drive.files.list({
+      q: `'${targetFolderId}' in parents and trashed=false`,
+      fields: 'files(id, name, size, createdTime)',
+      orderBy: 'createdTime desc'
+    });
+    return res.data.files || [];
+  } catch (e: any) {
+    console.error("Fehler beim Laden der Backups:", e.message);
+    return [];
+  }
 }
 
 // ── User Management ──────────────────────────────────────────────────────────
