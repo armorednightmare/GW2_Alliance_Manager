@@ -92,6 +92,24 @@ export async function saveSyncSettings(data: FormData) {
   revalidatePath("/", "layout");
 }
 
+export async function saveBackupSettings(data: FormData) {
+  await requireAdmin();
+  const existing = await prisma.systemSettings.findFirst();
+  const backupCronSchedule = (data.get("backupCronSchedule") as string) || "0 3 * * 0";
+
+  if (existing) {
+    await prisma.systemSettings.update({
+      where: { id: existing.id },
+      data: { backupCronSchedule },
+    });
+  } else {
+    await prisma.systemSettings.create({
+      data: { backupCronSchedule, allianceName: "Alliance" },
+    });
+  }
+  revalidatePath("/admin");
+}
+
 // ── User Management ──────────────────────────────────────────────────────────
 export async function changeUserRole(userId: string, role: string) {
   await requireAdmin();

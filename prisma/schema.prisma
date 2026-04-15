@@ -16,6 +16,7 @@ model SystemSettings {
   colorAccent     String  @default("#27ae60")
   colorBg         String  @default("#121212")
   apiSyncInterval Int     @default(60) // in minutes
+  backupCronSchedule String @default("0 3 * * 0")
 }
 
 // ====== ROLES ======

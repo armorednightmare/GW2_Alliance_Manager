@@ -1,4 +1,4 @@
-import { saveThemeSettings, saveSyncSettings } from "./actions";
+import { saveThemeSettings, saveSyncSettings, saveBackupSettings } from "./actions";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -121,6 +121,31 @@ export default async function AdminPage() {
                     <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>Auto-Sync Intervall (Minuten)</span>
                   </div>
                   <button type="submit" className="btn-primary">Sync-Einstellungen Speichern</button>
+                </div>
+              </form>
+            </div>
+          )}
+
+          {/* Backup settings only for ADMIN */}
+          {user.role === "ADMIN" && (
+            <div style={{ marginTop: "2rem", paddingTop: "1.5rem", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+              <form action={saveBackupSettings}>
+                <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem" }}>💾 Datenbank Backup (Google Drive)</h3>
+                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <select 
+                      name="backupCronSchedule" 
+                      defaultValue={settings?.backupCronSchedule || "0 3 * * 0"}
+                      style={{ padding: "0.4rem 0.6rem", background: "rgba(255,255,255,0.1)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px" }}
+                    >
+                      <option value="DISABLED">Deaktiviert</option>
+                      <option value="0 3 * * *">Täglich (03:00 Uhr)</option>
+                      <option value="0 3 * * 0">Wöchentlich, Sonntags (03:00 Uhr)</option>
+                      <option value="0 3 1 * *">Monatlich, am 1. (03:00 Uhr)</option>
+                    </select>
+                    <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>Wann sollen automatische Backups erstellt werden?</span>
+                  </div>
+                  <button type="submit" className="btn-primary">Backup-Plan Speichern</button>
                 </div>
               </form>
             </div>

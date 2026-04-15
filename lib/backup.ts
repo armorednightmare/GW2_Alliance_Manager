@@ -12,24 +12,17 @@ const MAX_BACKUPS = process.env.MAX_BACKUPS ? parseInt(process.env.MAX_BACKUPS) 
 export async function runDatabaseBackup() {
   console.log("🔒 Starting automated Database Backup...");
 
-  const base64Auth = process.env.GOOGLE_SERVICE_ACCOUNT_BASE64;
-  if (!base64Auth) {
-    console.log("ℹ️ GOOGLE_SERVICE_ACCOUNT_BASE64 is missing. Backup skipped.");
+  const clientId = process.env.GOOGLE_CLIENT_ID;
+  const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
+  const refreshToken = process.env.GOOGLE_REFRESH_TOKEN;
+
+  if (!clientId || !clientSecret || !refreshToken) {
+    console.log("ℹ️ GOOGLE_REFRESH_TOKEN oder Client Credentials fehlen. Backup übersprungen.");
     return;
   }
 
-  let credentials;
-  try {
-    credentials = JSON.parse(Buffer.from(base64Auth, 'base64').toString('utf-8'));
-  } catch (e: any) {
-    console.error("❌ Failed to parse GOOGLE_SERVICE_ACCOUNT_BASE64 as JSON.");
-    return;
-  }
-
-  const auth = new google.auth.GoogleAuth({
-    credentials,
-    scopes: ['https://www.googleapis.com/auth/drive'], // Full drive access is recommended to find the user's shared folder
-  });
+  const auth = new google.auth.OAuth2(clientId, clientSecret);
+  auth.setCredentials({ refresh_token: refreshToken });
 
   const drive = google.drive({ version: 'v3', auth });
   
@@ -42,6 +35,8 @@ export async function runDatabaseBackup() {
         q: `mimeType='application/vnd.google-apps.folder' and name='${FOLDER_NAME}' and trashed=false`,
         fields: 'files(id, name)',
         spaces: 'drive',
+        supportsAllDrives: true,
+        includeItemsFromAllDrives: true,
       });
       
       if (res.data.files && res.data.files.length > 0) {
@@ -54,6 +49,7 @@ export async function runDatabaseBackup() {
             mimeType: 'application/vnd.google-apps.folder',
           },
           fields: 'id',
+          supportsAllDrives: true,
         });
         targetFolderId = folderRes.data.id!;
         console.log(`📁 Target folder not found. Created Service-Account-owned Folder id: ${targetFolderId}`);
@@ -65,11 +61,14 @@ export async function runDatabaseBackup() {
   }
 
   // 2. Dump the database
-  const dbUrl = process.env.DATABASE_URL;
-  if (!dbUrl) {
+  const dbUrlRaw = process.env.DATABASE_URL;
+  if (!dbUrlRaw) {
     console.error("❌ DATABASE_URL is not set.");
     return;
   }
+  
+  // pg_dump does not support Prisma's ?schema=public URL parameter
+  const dbUrl = dbUrlRaw.split('?')[0];
   
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
   const filename = `gw2_alliance_backup_${timestamp}.sql`;
@@ -99,6 +98,7 @@ export async function runDatabaseBackup() {
         body: fs.createReadStream(dumpPath),
       },
       fields: 'id',
+      supportsAllDrives: true,
     });
     console.log(`✅ Upload successful: ${uploadRes.data.id}`);
   } catch (e: any) {
@@ -114,6 +114,8 @@ export async function runDatabaseBackup() {
       q: `'${targetFolderId}' in parents and trashed=false and name contains 'gw2_alliance_backup'`,
       fields: 'files(id, name, createdTime)',
       orderBy: 'createdTime desc',
+      supportsAllDrives: true,
+      includeItemsFromAllDrives: true,
     });
     
     const backups = filesList.data.files || [];
@@ -121,7 +123,7 @@ export async function runDatabaseBackup() {
       const toDelete = backups.slice(MAX_BACKUPS);
       for (const oldBackup of toDelete) {
         console.log(`🗑️ Deleting old backup: ${oldBackup.name}`);
-        await drive.files.delete({ fileId: oldBackup.id! });
+        await drive.files.delete({ fileId: oldBackup.id!, supportsAllDrives: true });
       }
     } else {
       console.log(`ℹ️ Retention check passed. Total backups: ${backups.length}/${MAX_BACKUPS}.`);

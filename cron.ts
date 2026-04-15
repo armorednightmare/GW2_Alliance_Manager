@@ -7,18 +7,52 @@ async function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Schedule weekly DB Backup to run every Sunday at 03:00 AM
-cron.schedule('0 3 * * 0', async () => {
-  console.log("⏰ Cron Trigger: Scheduled Weekly Database Backup");
-  try {
-    await runDatabaseBackup();
-  } catch (e: any) {
-    console.error("❌ Uncaught exception in Database Backup job:", e);
+// Dynamic Backup Cron Logic
+let currentBackupSchedule: string = '0 3 * * 0'; // default
+let currentBackupCronTask: cron.ScheduledTask | null = null;
+
+function applyBackupSchedule(schedule: string) {
+  if (currentBackupCronTask) {
+    currentBackupCronTask.stop();
+    currentBackupCronTask = null;
   }
-});
+  
+  if (schedule === "DISABLED") {
+    console.log("⏸️ Automatisierte Backups sind deaktiviert.");
+    return;
+  }
+
+  // Basic validation to prevent crashing
+  if (!cron.validate(schedule)) {
+    console.error("❌ Ungültiger Cron-Ausdruck:", schedule);
+    return;
+  }
+
+  currentBackupCronTask = cron.schedule(schedule, async () => {
+    console.log("⏰ Cron Trigger: Scheduled Database Backup");
+    try {
+      await runDatabaseBackup();
+    } catch (e: any) {
+      console.error("❌ Uncaught exception in Database Backup job:", e);
+    }
+  });
+  console.log(`⏱️ Backup-Zeitplan aktualisiert auf: "${schedule}"`);
+}
 
 async function runCron() {
   console.log("🛠️ Background Auto-Sync Worker started.");
+
+  // Init backup schedule
+  try {
+    const settings = await prisma.systemSettings.findFirst();
+    if (settings?.backupCronSchedule) {
+      currentBackupSchedule = settings.backupCronSchedule;
+    }
+  } catch (e) {
+    console.log("DB might not be ready yet for settings");
+  }
+  
+  applyBackupSchedule(currentBackupSchedule);
 
   while (true) {
     let intervalMinutes = 60; // Default
@@ -27,6 +61,11 @@ async function runCron() {
       const settings = await prisma.systemSettings.findFirst();
       if (settings?.apiSyncInterval) {
         intervalMinutes = settings.apiSyncInterval;
+      }
+      if (settings?.backupCronSchedule && settings.backupCronSchedule !== currentBackupSchedule) {
+        console.log(`♻️ Neuer Backup-Zeitplan erkannt!`);
+        currentBackupSchedule = settings.backupCronSchedule;
+        applyBackupSchedule(currentBackupSchedule);
       }
     } catch (e: any) {
       console.error("Cron Database lookup failed:", e.message);
