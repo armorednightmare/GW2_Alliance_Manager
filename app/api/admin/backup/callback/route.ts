@@ -64,8 +64,8 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    // Redirect to Admin Panel
-    const adminUrl = new URL('/admin', req.nextUrl.origin);
+    // Redirect to Admin Panel (use req.url to ensure we use the same host as the request)
+    const adminUrl = new URL('/admin', req.url);
     return NextResponse.redirect(adminUrl);
 
   } catch (e: any) {
