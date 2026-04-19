@@ -41,11 +41,21 @@ GOOGLE_REFRESH_TOKEN="1//dein-kopierter-refresh-token..."
 # (Optional) Falls die Backups in einen bestimmten Ordner sollen
 GOOGLE_DRIVE_FOLDER_ID=""
 MAX_BACKUPS="4"
+
+# Erforderlich für die Verschlüsselung in der Datenbank
+# Generiere einen Key mit:
+# Windows (PowerShell): [Convert]::ToBase64String((1..32 | % { Get-Random -Min 0 -Max 256 }))
+# Linux/Mac (Bash): openssl rand -base64 32
+BACKUP_ENCRYPTION_KEY="dein-sicherer-key"
 ```
 
-## Schritt 3: Container Neustart
+## Schritt 3: Sicherheit (Verschlüsselung)
 
-Damit der Backup-Worker Token aufgreift, musst du deinen Servercontainer neu starten:
+Der Alliance Manager speichert den Refresh-Token in der Datenbank verschlüsselt (AES-256-GCM). Dafür **muss** die Variable `BACKUP_ENCRYPTION_KEY` in deiner `.env` gesetzt sein. Falls du diese änderst, musst du den Login im Admin-Panel erneut durchführen.
+
+## Schritt 4: Container Neustart
+
+Damit der Backup-Worker den Token aufgreift, musst du deinen Servercontainer neu starten:
 
 ```bash
 docker-compose up -d web

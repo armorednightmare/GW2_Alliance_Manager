@@ -37,8 +37,10 @@ In dieser Anleitung erfahren Sie, wie Sie die notwendigen Client-IDs und Secrets
     *   Wählen Sie **"Application type: Web application"**.
     *   **Authorized JavaScript origins**: `http://localhost:3000` (und Ihre Live-URL).
     *   **Authorized redirect URIs**:
-        *   Lokal: `http://localhost:3000/api/auth/callback/google`
-        *   Live: `https://deinedomain.com/api/auth/callback/google`
+        *   Lokal (Login): `http://localhost:3000/api/auth/callback/google`
+        *   Lokal (Backup): `http://localhost:3000/api/admin/backup/callback`
+        *   Live (Login): `https://deinedomain.com/api/auth/callback/google`
+        *   Live (Backup): `https://deinedomain.com/api/admin/backup/callback`
 5.  **Client ID & Secret**: Nach dem Klick auf **"Create"** erhalten Sie Ihre Client ID und Ihr Client Secret.
 6.  **Environment Variables**: Tragen Sie die Werte in Ihre `.env` ein:
     ```env
