@@ -125,7 +125,7 @@ export default async function AdminPage() {
                     />
                     <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>Auto-Sync Intervall (Minuten)</span>
                   </div>
-                  <button type="submit" className="btn-primary">Sync-Einstellungen Speichern</button>
+                  <button type="submit" className="btn-primary" style={{ width: "fit-content", padding: "0.5rem 2rem" }}>Sync-Einstellungen Speichern</button>
                 </div>
               </form>
             </div>
@@ -150,7 +150,7 @@ export default async function AdminPage() {
                     </select>
                     <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>Wann sollen automatische Backups erstellt werden?</span>
                   </div>
-                  <button type="submit" className="btn-primary">Backup-Plan Speichern</button>
+                  <button type="submit" className="btn-primary" style={{ width: "fit-content", padding: "0.5rem 2rem" }}>Backup-Plan Speichern</button>
                 </div>
               </form>
               <BackupManagementClient initialBackups={initialBackups} backupEmail={settings?.backupEmail} />
