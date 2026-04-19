@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect } from "react";
 import { triggerManualBackup, getBackupList, unlinkBackupAccount } from "./actions";
 
 interface BackupFile {
@@ -14,6 +14,11 @@ export default function BackupManagementClient({ initialBackups, backupEmail }: 
   const [backups, setBackups] = useState<BackupFile[]>(initialBackups);
   const [isPending, startTransition] = useTransition();
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null);
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
 
   const handleManualBackup = async () => {
     if (!confirm("Möchtest du jetzt manuell ein Datenbank-Backup auf Google Drive erstellen?")) return;
@@ -143,7 +148,7 @@ export default function BackupManagementClient({ initialBackups, backupEmail }: 
                 <td style={{ padding: "0.75rem 1rem" }}>{file.name}</td>
                 <td style={{ padding: "0.75rem 1rem", opacity: 0.7 }}>{formatSize(file.size)}</td>
                 <td style={{ padding: "0.75rem 1rem", opacity: 0.7 }}>
-                  {new Date(file.createdTime).toLocaleString("de-DE")}
+                  {isMounted ? new Date(file.createdTime).toLocaleString("de-DE") : "..."}
                 </td>
                 <td style={{ padding: "0.75rem 1rem", textAlign: "right", color: "#2ecc71" }}>
                   ● Google Drive

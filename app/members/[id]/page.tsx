@@ -5,6 +5,7 @@ import { getUserDiscordRoles } from "@/lib/discord";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { canEditMember, AuthUser, canSeeRank } from "@/lib/permissions";
+import DateDisplay from "@/app/components/DateDisplay";
 
 
 export default async function MemberDetailPage({ params }: { params: { id: string } }) {
@@ -232,7 +233,10 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
               })
               .map((item: any) => (
                 <li key={item.id} style={{ marginBottom: '1rem', borderLeft: '2px solid var(--accent-color)', paddingLeft: '1rem' }}>
-                  <div style={{ fontSize: '0.8rem', opacity: 0.7 }} suppressHydrationWarning>{item.createdAt.toLocaleString('de-DE')}</div>
+                  <DateDisplay 
+                    date={item.createdAt} 
+                    style={{ fontSize: '0.8rem', opacity: 0.7, display: 'block' }} 
+                  />
                   <strong style={{ fontSize: '0.85rem', color: 'var(--accent-color)' }}>{item.eventType.replace(/_/g, ' ')}</strong>
                   {item.oldValue || item.newValue ? (
                     <div style={{ marginTop: '0.2rem', fontSize: '0.9rem' }}>

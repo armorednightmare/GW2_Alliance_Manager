@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import ProfileClient from "./ProfileClient";
+import DateDisplay from "../components/DateDisplay";
 import "../members/Members.css";
 
 interface UserSession {
@@ -117,7 +118,10 @@ export default async function ProfilePage() {
                 .filter((item: any) => !["COMMENT_ADDED", "COMMENT_CHANGED"].includes(item.eventType))
                 .map((item: any) => (
                   <li key={item.id} style={{ marginBottom: '1rem', borderLeft: '2px solid var(--accent-color)', paddingLeft: '1rem', fontSize: '0.9rem' }}>
-                    <div style={{ fontSize: '0.75rem', opacity: 0.6 }} suppressHydrationWarning>{item.createdAt.toLocaleString('de-DE')}</div>
+                    <DateDisplay 
+                      date={item.createdAt} 
+                      style={{ fontSize: '0.75rem', opacity: 0.6, display: 'block' }} 
+                    />
                     <strong>{item.eventType.replace(/_/g, ' ')}</strong>
                     {item.newValue && <div style={{ opacity: 0.8, fontSize: '0.85rem' }}>➔ {item.newValue}</div>}
                   </li>

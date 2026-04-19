@@ -12,10 +12,12 @@ export default function HistoryClient({ initialHistory, initialTotal }: { initia
   const [limit, setLimit] = useState(50);
   const [search, setSearch] = useState("");
   const [isPending, startTransition] = useTransition();
+  const [isMounted, setIsMounted] = useState(false);
   const isFirstMount = useRef(true);
 
   // Highlight hash logic
   useEffect(() => {
+    setIsMounted(true);
     const hash = window.location.hash;
     if (!hash) return;
     const targetId = hash.replace("#", ""); 
@@ -125,8 +127,8 @@ export default function HistoryClient({ initialHistory, initialTotal }: { initia
             <tbody>
               {history.map((h: any) => (
                 <tr key={h.id} id={`hist-${h.id}`}>
-                  <td style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)" }} suppressHydrationWarning>
-                    {new Date(h.createdAt).toLocaleString("de-DE")}
+                  <td style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+                    {isMounted ? new Date(h.createdAt).toLocaleString("de-DE") : "..."}
                   </td>
                   <td style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <strong>{h.member?.accountName || "Unbekannt"}</strong>
