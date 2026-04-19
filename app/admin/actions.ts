@@ -131,7 +131,16 @@ export async function getBackupList() {
       fields: 'files(id, name, size, createdTime)',
       orderBy: 'createdTime desc'
     });
-    return res.data.files || [];
+    
+    // Map and filter to ensure strict types for the client
+    return (res.data.files || [])
+      .filter(file => file.id && file.name && file.createdTime)
+      .map(file => ({
+        id: file.id as string,
+        name: file.name as string,
+        size: file.size || "0",
+        createdTime: file.createdTime as string
+      }));
   } catch (e: any) {
     console.error("Fehler beim Laden der Backups:", e.message);
     return [];
