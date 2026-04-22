@@ -10,7 +10,12 @@ export default function RoleManagementClient({ roles }: { roles: any[] }) {
     e.preventDefault();
     setMsg("Erstelle Rolle...");
     try {
-      await addManualRole(new FormData(e.currentTarget));
+      const f = new FormData(e.currentTarget);
+      const data = new FormData();
+      data.set("name", f.get("name") as string);
+      data.set("color", f.get("color") as string);
+      
+      await addManualRole(data);
       setMsg("Rolle erfolgreich angelegt!");
       (e.target as HTMLFormElement).reset();
     } catch (err: any) {
