@@ -1,0 +1,26 @@
+version: '3.8'
+
+services:
+  web-firebase:
+    build:
+      context: .
+      dockerfile: Dockerfile.firebase
+    container_name: gw2-web-firebase
+    ports:
+      - "3001:3000"     # Web App on 3001
+      - "4000:4000"     # Firebase Emulator UI
+      - "8080:8080"     # Firestore Emulator
+      - "9099:9099"     # Auth Emulator
+    volumes:
+      - .:/app
+      - node_modules_firebase:/app/node_modules
+      - .next_firebase:/app/.next
+    env_file:
+      - .env
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+
+volumes:
+  node_modules_firebase:
+  .next_firebase:
