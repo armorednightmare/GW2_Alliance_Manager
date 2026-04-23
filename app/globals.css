@@ -52,6 +52,12 @@ h1, h2, h3 {
   animation: fadeIn 0.4s ease-out;
 }
 
+@media (max-width: 768px) {
+  .page-content {
+    padding: 1rem;
+  }
+}
+
 /* Glassmorphism Classes */
 .glass-panel {
   background: var(--surface-color);

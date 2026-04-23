@@ -1,8 +1,10 @@
 "use client";
+
 import { signOut, useSession } from "next-auth/react";
 import Link from "next/link";
 import Image from "next/image";
 import "./Header.css";
+import { useSidebar } from "./SidebarContext";
 
 interface HeaderProps {
   allianceName?: string;
@@ -11,10 +13,25 @@ interface HeaderProps {
 
 export default function Header({ allianceName = "Alliance Manager", logoUrl }: HeaderProps) {
   const { data: session } = useSession();
+  const { isOpen, toggle } = useSidebar();
 
   return (
     <header className="main-header">
       <div className="logo-area">
+        {/* Hamburger toggle – only visible on mobile via CSS */}
+        {session && (
+          <button
+            className={`sidebar-toggle${isOpen ? " sidebar-toggle--active" : ""}`}
+            onClick={toggle}
+            aria-label={isOpen ? "Navigation schließen" : "Navigation öffnen"}
+            aria-expanded={isOpen}
+          >
+            <span />
+            <span />
+            <span />
+          </button>
+        )}
+
         <Link href="/" style={{ display: "flex", alignItems: "center", gap: "0.75rem", textDecoration: "none" }}>
           {logoUrl && (
             <Image

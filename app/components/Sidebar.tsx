@@ -1,6 +1,6 @@
 import Link from "next/link";
 import "./Sidebar.css";
-// import server session to check role
+import SidebarClient from "./SidebarClient";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 
@@ -11,7 +11,7 @@ export default async function Sidebar(): Promise<JSX.Element> {
   const isAdmin = role === "ADMIN" || role === "ALLIANCE_LEADER" || role === "GUILD_LEADER";
 
   return (
-    <aside className="main-sidebar">
+    <SidebarClient>
       <nav>
         <ul>
           <li><Link href="/">Dashboard</Link></li>
@@ -35,13 +35,13 @@ export default async function Sidebar(): Promise<JSX.Element> {
       </div>
 
       <div className="sidebar-footer">
-        <Link 
-          href="/docs/USER_GUIDE" 
+        <Link
+          href="/docs/USER_GUIDE"
           className="footer-link"
         >
           <span className="icon">📚 Dokumentation</span>
         </Link>
       </div>
-    </aside>
+    </SidebarClient>
   );
 }

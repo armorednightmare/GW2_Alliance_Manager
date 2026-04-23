@@ -1,3 +1,4 @@
+/* ─── Desktop Sidebar ────────────────────────────────────────────────────── */
 .main-sidebar {
   width: 250px;
   background-color: var(--surface-color);
@@ -6,6 +7,9 @@
   border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
+  /* mobile: hidden by default */
+  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  z-index: 200;
 }
 
 .main-sidebar nav {
@@ -75,4 +79,120 @@
 .footer-link .icon {
   display: flex;
   align-items: center;
+}
+
+/* ─── Mobile-only: Hamburger Button ─────────────────────────────────────── */
+.sidebar-toggle {
+  display: none; /* hidden on desktop */
+}
+
+/* ─── Mobile-only: Close Button inside sidebar ───────────────────────────── */
+.sidebar-close {
+  display: none;
+}
+
+/* ─── Mobile-only: Overlay ───────────────────────────────────────────────── */
+.sidebar-overlay {
+  display: none;
+}
+
+/* ─── Mobile Breakpoint ──────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  /* Sidebar slides in from the left */
+  .main-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    height: 100%;
+    width: 280px;
+    transform: translateX(-100%);
+    z-index: 300;
+    box-shadow: 4px 0 30px rgba(0, 0, 0, 0.5);
+    padding-top: 3.5rem; /* space for close button */
+  }
+
+  .main-sidebar--open {
+    transform: translateX(0);
+  }
+
+  /* Overlay */
+  .sidebar-overlay {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    z-index: 299;
+    animation: fadeInOverlay 0.25s ease;
+  }
+
+  @keyframes fadeInOverlay {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* Close button inside sidebar */
+  .sidebar-close {
+    display: flex;
+    position: absolute;
+    top: 0.8rem;
+    right: 0.8rem;
+    background: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-color);
+    border-radius: 6px;
+    padding: 0.3rem 0.6rem;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+  }
+
+  .sidebar-close:hover {
+    background: rgba(102, 252, 241, 0.1);
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+  }
+
+  /* Hamburger toggle – shown in header area */
+  .sidebar-toggle {
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    width: 28px;
+    height: 20px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    z-index: 400;
+    /* positioned by the Header flex layout */
+  }
+
+  .sidebar-toggle span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    background-color: var(--text-color);
+    border-radius: 2px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    transform-origin: center;
+  }
+
+  /* Animate to X when active */
+  .sidebar-toggle--active span:nth-child(1) {
+    transform: translateY(9px) rotate(45deg);
+  }
+  .sidebar-toggle--active span:nth-child(2) {
+    opacity: 0;
+    transform: scaleX(0);
+  }
+  .sidebar-toggle--active span:nth-child(3) {
+    transform: translateY(-9px) rotate(-45deg);
+  }
+
+  /* Prevent body scroll when sidebar open */
+  body.sidebar-open {
+    overflow: hidden;
+  }
 }
