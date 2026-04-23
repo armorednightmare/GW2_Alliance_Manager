@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useEffect } from "react";
 import { triggerManualBackup, getBackupList, unlinkBackupAccount } from "./actions";
+import "./BackupManagement.css";
 
 interface BackupFile {
   id: string;
@@ -57,22 +58,22 @@ export default function BackupManagementClient({ initialBackups, backupEmail }: 
   };
 
   return (
-    <div style={{ marginTop: "2rem", display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
+    <div className="backup-container">
+      <div className="backup-header">
         <div>
           <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "1.1rem" }}>Manuelle Backup-Verwaltung</h3>
           <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.7 }}>
             Hier kannst du sofort ein Backup erzwingen oder die Liste deiner Dateien auf Google Drive einsehen.
           </p>
-          <div style={{ marginTop: "1rem", display: "flex", alignItems: "center", gap: "1rem" }}>
+          <div className="backup-status-row">
             {backupEmail ? (
               <>
-                <div style={{ fontSize: "0.85rem", padding: "0.3rem 0.6rem", background: "rgba(46, 204, 113, 0.1)", border: "1px solid rgba(46, 204, 113, 0.3)", borderRadius: "4px", color: "#2ecc71" }}>
+                <div className="backup-linked-badge">
                   ✅ Verknüpft mit {backupEmail}
                 </div>
                 <button 
                   onClick={handleUnlink}
-                  style={{ background: "transparent", border: "none", color: "#e74c3c", fontSize: "0.8rem", cursor: "pointer", textDecoration: "underline" }}
+                  className="backup-unlink-btn"
                 >
                   Verknüpfung trennen
                 </button>
@@ -88,7 +89,7 @@ export default function BackupManagementClient({ initialBackups, backupEmail }: 
             )}
           </div>
         </div>
-        <div style={{ display: "flex", gap: "0.5rem" }}>
+        <div className="backup-actions">
           <button 
             onClick={refreshList}
             disabled={isPending}
@@ -127,12 +128,7 @@ export default function BackupManagementClient({ initialBackups, backupEmail }: 
         </div>
       )}
 
-      <div style={{ 
-        background: "rgba(0,0,0,0.2)", 
-        borderRadius: "8px", 
-        border: "1px solid rgba(255,255,255,0.05)",
-        overflow: "hidden"
-      }}>
+      <div className="backup-table-wrapper">
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.85rem" }}>
           <thead style={{ background: "rgba(255,255,255,0.05)" }}>
             <tr>
