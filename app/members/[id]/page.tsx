@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import "./MemberProfile.css";
 import { notFound } from "next/navigation";
 import { updateMemberComment, addMemberToManualGuild, removeMemberFromManualGuild, updateDiscordName } from "./actions";
 import { getUserDiscordRoles } from "@/lib/discord";
@@ -86,8 +87,8 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
     <div>
       <h1>Profil: {member.accountName}</h1>
 
-      <div style={{ display: 'flex', gap: '2rem', marginTop: '2rem' }}>
-        <div style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '8px' }}>
+      <div className="member-profile-grid">
+        <div className="member-profile-main">
           <h3>Allgemeine Details</h3>
           <p><strong>Status:</strong> {member.status}</p>
           <p><strong>WvW Vertreten:</strong> {member.wvwMember ? 'Ja' : 'Nein'}</p>
@@ -158,7 +159,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
               <form action={updateDiscordName} style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
                 <label style={{ fontSize: '0.9rem', opacity: 0.8 }}>Discord-Namen anpassen</label>
                 <input type="hidden" name="memberId" value={member.id} />
-                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                <div className="discord-name-row">
                   <input type="text" name="customDiscordName" defaultValue={member.customDiscordName || member.linkedUser?.name || ""} placeholder="Neuer Discord Name..." style={{ flex: 1, padding: '0.5rem', background: '#1e1e1e', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }} />
                   <button type="submit" style={{ padding: '0.5rem 1rem', background: 'var(--accent-color)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Speichern</button>
                 </div>
@@ -219,7 +220,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
           )}
         </div>
 
-        <div style={{ flex: 1, backgroundColor: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '8px' }}>
+        <div className="member-profile-history">
           <h3>Aktivitäten / Historie</h3>
           <ul style={{ listStyle: 'none', padding: 0 }}>
             {maskedHistory

@@ -1,0 +1,53 @@
+/* ─── Member Profile Layout ──────────────────────────────────────────────── */
+
+.member-profile-grid {
+  display: flex;
+  gap: 2rem;
+  margin-top: 2rem;
+}
+
+.member-profile-main {
+  flex: 1;
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 1.5rem;
+  border-radius: 8px;
+  /* prevent content from forcing the column wider than viewport */
+  min-width: 0;
+}
+
+.member-profile-history {
+  flex: 1;
+  background-color: rgba(0, 0, 0, 0.2);
+  padding: 1.5rem;
+  border-radius: 8px;
+  min-width: 0;
+}
+
+/* ─── Discord-Name form: input + button inline ──────────────────────────── */
+.discord-name-row {
+  display: flex;
+  gap: 0.5rem;
+}
+
+/* ─── Mobile ────────────────────────────────────────────────────────────── */
+@media (max-width: 768px) {
+  .member-profile-grid {
+    flex-direction: column;
+  }
+
+  /* History moves fully below main info – no horizontal scroll needed */
+  .member-profile-main,
+  .member-profile-history {
+    width: 100%;
+  }
+
+  /* Discord name input row stacks vertically */
+  .discord-name-row {
+    flex-direction: column;
+  }
+
+  .discord-name-row input,
+  .discord-name-row button {
+    width: 100%;
+  }
+}
