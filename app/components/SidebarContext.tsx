@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
+import { usePathname } from "next/navigation";
 
 interface SidebarContextType {
   isOpen: boolean;
@@ -16,16 +17,15 @@ const SidebarContext = createContext<SidebarContextType>({
 
 export function SidebarProvider({ children }: { children: ReactNode }) {
   const [isOpen, setIsOpen] = useState(false);
+  const pathname = usePathname();
 
   const toggle = () => setIsOpen((prev) => !prev);
   const close = () => setIsOpen(false);
 
-  // Close on route change
+  // Close sidebar on every client-side route change (Next.js App Router)
   useEffect(() => {
-    const handleRouteChange = () => setIsOpen(false);
-    window.addEventListener("popstate", handleRouteChange);
-    return () => window.removeEventListener("popstate", handleRouteChange);
-  }, []);
+    setIsOpen(false);
+  }, [pathname]);
 
   // Lock body scroll on mobile when open
   useEffect(() => {
