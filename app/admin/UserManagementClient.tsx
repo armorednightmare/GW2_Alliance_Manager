@@ -47,7 +47,7 @@ export default function UserManagementClient({ users, guilds }: { users: User[],
   const [resetPw, setResetPw] = useState<Record<string, string>>({});
   const [localUsers, setLocalUsers] = useState(users);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [newUser, setNewUser] = useState({ email: "", password: "", name: "", role: "WEB_MEMBER" });
+  const [newUser, setNewUser] = useState({ username: "", password: "", role: "WEB_MEMBER" });
 
   const feedback = (text: string) => {
     setMsg(text);
@@ -91,8 +91,8 @@ export default function UserManagementClient({ users, guilds }: { users: User[],
     setBusy(null);
   };
 
-  const handleDelete = async (userId: string, email: string) => {
-    if (!confirm(`User "${email}" wirklich löschen?`)) return;
+  const handleDelete = async (userId: string, username: string) => {
+    if (!confirm(`User "${username}" wirklich löschen?`)) return;
     setBusy(userId + "-del");
     try {
       await deleteUser(userId);
@@ -141,14 +141,13 @@ export default function UserManagementClient({ users, guilds }: { users: User[],
     setBusy("create");
     try {
       const formData = new FormData();
-      formData.set("email", newUser.email);
+      formData.set("username", newUser.username);
       formData.set("password", newUser.password);
-      formData.set("name", newUser.name);
       formData.set("role", newUser.role);
       
       await createManualUser(formData);
       feedback("Benutzer erfolgreich angelegt ✓");
-      setNewUser({ email: "", password: "", name: "", role: "WEB_MEMBER" });
+      setNewUser({ username: "", password: "", role: "WEB_MEMBER" });
       setShowAddForm(false);
       window.location.reload(); 
     } catch (e: any) {
@@ -209,12 +208,12 @@ export default function UserManagementClient({ users, guilds }: { users: User[],
             
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem" }}>
               <div>
-                <label style={{ display: "block", fontSize: "0.8rem", opacity: 0.7, marginBottom: "0.3rem" }}>Email (Login)</label>
+                <label style={{ display: "block", fontSize: "0.8rem", opacity: 0.7, marginBottom: "0.3rem" }}>Benutzername (Login)</label>
                 <input 
-                  type="email" 
+                  type="text" 
                   required
-                  value={newUser.email}
-                  onChange={e => setNewUser({...newUser, email: e.target.value})}
+                  value={newUser.username}
+                  onChange={e => setNewUser({...newUser, username: e.target.value})}
                   style={{ width: "100%", padding: "0.5rem", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.2)", color: "white", borderRadius: "6px" }}
                 />
               </div>
@@ -228,16 +227,6 @@ export default function UserManagementClient({ users, guilds }: { users: User[],
                   style={{ width: "100%", padding: "0.5rem", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.2)", color: "white", borderRadius: "6px" }}
                 />
               </div>
-            </div>
-
-            <div>
-              <label style={{ display: "block", fontSize: "0.8rem", opacity: 0.7, marginBottom: "0.3rem" }}>Anzeigename (Optional)</label>
-              <input 
-                type="text" 
-                value={newUser.name}
-                onChange={e => setNewUser({...newUser, name: e.target.value})}
-                style={{ width: "100%", padding: "0.5rem", background: "rgba(0,0,0,0.2)", border: "1px solid rgba(255,255,255,0.2)", color: "white", borderRadius: "6px" }}
-              />
             </div>
 
             <div>
@@ -275,7 +264,7 @@ export default function UserManagementClient({ users, guilds }: { users: User[],
         <table style={{ width: "100%", borderCollapse: "collapse", fontSize: "0.9rem" }}>
           <thead>
             <tr style={{ borderBottom: "2px solid rgba(255,255,255,0.1)" }}>
-              {["Name / Email", "GW2 Account", "Rolle / Verwaltung", "Passwort Reset", "Aktionen"].map((h) => (
+              {["Name", "GW2 Account", "Rolle / Verwaltung", "Passwort Reset", "Aktionen"].map((h) => (
                 <th key={h} style={{ padding: "0.8rem 1rem", textAlign: "left", opacity: 0.7, fontWeight: 600 }}>{h}</th>
               ))}
             </tr>
@@ -286,10 +275,9 @@ export default function UserManagementClient({ users, guilds }: { users: User[],
 
                 return (
               <tr key={u.id} style={{ borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                {/* Name/Email */}
+                {/* Name */}
                 <td style={{ padding: "0.8rem 1rem" }}>
-                  <div style={{ fontWeight: 600 }}>{u.name || "–"}</div>
-                  <div style={{ fontSize: "0.8rem", opacity: 0.6 }}>{u.email || "OAuth (no email)"}</div>
+                  <div style={{ fontWeight: 600 }}>{u.name || "OAuth User"}</div>
                 </td>
 
                 {/* GW2 Account */}
@@ -419,7 +407,7 @@ export default function UserManagementClient({ users, guilds }: { users: User[],
                 {/* Delete */}
                 <td style={{ padding: "0.8rem 1rem" }}>
                   <button
-                    onClick={() => handleDelete(u.id, u.email || u.name || "Unbekannt")}
+                    onClick={() => handleDelete(u.id, u.name || "Unbekannt")}
                     disabled={busy === u.id + "-del"}
                     style={{
                       padding: "0.4rem 0.8rem",

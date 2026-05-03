@@ -17,12 +17,19 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Local Account",
       credentials: {
-        email: { label: "Email", type: "text" },
+        username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
-        const user = await prisma.user.findUnique({ where: { email: credentials.email } });
+        if (!credentials?.username || !credentials?.password) return null;
+        const user = await prisma.user.findFirst({
+          where: {
+            OR: [
+              { name: credentials.username },
+              { email: credentials.username }
+            ]
+          }
+        });
         // In local development we compare directly; in production use bcrypt.compare
         if (user && user.passwordHash === credentials.password) {
           return { 
@@ -67,20 +74,38 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token, user, trigger }: any) {
-      if (user || token.email) {
-        const email = user?.email || token.email;
-        const userInDb = await prisma.user.findUnique({ 
-          where: { email },
+      let userInDb = null;
+      if (token.id) {
+        userInDb = await prisma.user.findUnique({ 
+          where: { id: token.id as string },
           include: { 
-            member: {
-              include: { guilds: { include: { guild: true } } }
-            },
+            member: { include: { guilds: { include: { guild: true } } } },
             managedGuilds: { select: { id: true } }
           }
         });
+      } else if (user) {
+        if (user.email) {
+          userInDb = await prisma.user.findUnique({ 
+            where: { email: user.email },
+            include: { 
+              member: { include: { guilds: { include: { guild: true } } } },
+              managedGuilds: { select: { id: true } }
+            }
+          });
+        }
+        if (!userInDb && user.id) {
+          userInDb = await prisma.user.findUnique({ 
+            where: { id: user.id },
+            include: { 
+              member: { include: { guilds: { include: { guild: true } } } },
+              managedGuilds: { select: { id: true } }
+            }
+          });
+        }
+      }
 
         if (!userInDb) {
-          if (token.email) return { deleted: true };
+          if (token.id) return { deleted: true };
           return token;
         }
 
@@ -99,7 +124,6 @@ export const authOptions: NextAuthOptions = {
         }
         token.subGuildIds = managedIds;
         token.memberGuildIds = allMemberGuilds.map(mg => mg.guildId);
-      }
 
       return token;
     },

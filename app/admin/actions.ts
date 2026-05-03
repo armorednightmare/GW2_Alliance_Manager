@@ -295,18 +295,19 @@ export async function deleteManualRole(data: FormData) {
 
 export async function createManualUser(data: FormData) {
   await requireAdmin();
-  const email = data.get("email") as string;
+  const username = data.get("username") as string;
   const password = data.get("password") as string;
-  const name = data.get("name") as string;
   const role = data.get("role") as any;
 
-  if (!email || !password) throw new Error("Email und Passwort sind erforderlich");
+  if (!username || !password) throw new Error("Benutzername und Passwort sind erforderlich");
+
+  const existing = await prisma.user.findFirst({ where: { name: username } });
+  if (existing) throw new Error("Dieser Benutzername existiert bereits");
 
   await prisma.user.create({
     data: {
-      email,
+      name: username,
       passwordHash: password, // In prod use bcrypt
-      name: name || null,
       role: role || "WEB_MEMBER",
     }
   });
