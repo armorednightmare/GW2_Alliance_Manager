@@ -1,5 +1,5 @@
 "use server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/firebase-admin";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { AuthUser } from "@/lib/permissions";
@@ -16,18 +16,17 @@ export async function verifyAndLinkApiKey(apiKey: string) {
     const accountName = data.name; // e.g. Name.1234
 
     // Find the member record
-    const member = await prisma.member.findUnique({
-      where: { accountName: accountName }
-    });
-
-    if (!member) {
+    const memberSnapshot = await db.collection("members").where("accountName", "==", accountName).limit(1).get();
+    
+    if (memberSnapshot.empty) {
       return { success: false, error: `Account ${accountName} existiert nicht in einer verknüpften Gilde. (Noch nicht gesynct?)` };
     }
 
+    const member = memberSnapshot.docs[0];
+
     // Link it
-    await prisma.user.update({
-      where: { id: session.user.id },
-      data: { memberId: member.id }
+    await db.collection("users").doc(session.user.id).update({
+      memberId: member.id
     });
 
     return { success: true, accountName };
@@ -40,8 +39,7 @@ export async function unlinkAccount() {
   const session = (await getServerSession(authOptions)) as { user: AuthUser } | null;
   if (!session?.user?.id) return;
 
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { memberId: null }
+  await db.collection("users").doc(session.user.id).update({
+    memberId: null
   });
 }

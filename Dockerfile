@@ -1,54 +1,17 @@
-# Base image for building
-FROM node:20-alpine AS base
-RUN apk add --no-cache libc6-compat openssl postgresql-client
+FROM node:22-alpine
 
-# 1. Install dependencies only when needed
-FROM base AS deps
 WORKDIR /app
 
-COPY package*.json ./
-# Use --omit=dev for production if you want a minimal image, but we need devDeps for build
-RUN npm install
+# Install basic dependencies (openssl for NextAuth/Prisma migration phase)
+RUN apk add --no-cache openssl openjdk21-jre
 
-# 2. Rebuild the source code only when needed
-FROM base AS builder
-WORKDIR /app
-COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+# Pre-install firebase-tools globally inside this specific container
+RUN npm install -g firebase-tools
 
-# Generate Prisma client and build Next.js
-RUN mkdir -p public
-RUN DATABASE_URL=postgresql://dummy:dummy@localhost:5432/dummy npx prisma generate
-RUN npm run build
+EXPOSE 3001
+EXPOSE 4000
+EXPOSE 8080
+EXPOSE 9099
 
-# 3. Production image, copy all the files and run next
-FROM base AS runner
-WORKDIR /app
-
-ENV NODE_ENV production
-
-RUN addgroup --system --gid 1001 nodejs
-RUN adduser --system --uid 1001 nextjs
-
-# Output tracing produces highly optimized images
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
-# Copy prisma schema/migrations for deployment
-COPY --from=builder --chown=nextjs:nodejs /app/prisma ./prisma
-# Copy cron task and tsx-related dependencies
-COPY --from=builder --chown=nextjs:nodejs /app/node_modules ./node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/cron.ts ./
-COPY --from=builder --chown=nextjs:nodejs /app/lib ./lib
-COPY --from=builder --chown=nextjs:nodejs /app/package.json ./
-COPY --from=builder --chown=nextjs:nodejs /app/tsconfig.json ./
-COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts ./
-
-USER nextjs
-
-EXPOSE 3000
-ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
-
-# Note: Intelligent Startup Logic (db push if no migrations, otherwise migrate deploy)
-CMD ["sh", "-c", "if [ -d \"prisma/migrations\" ] && [ \"$(ls -A prisma/migrations 2>/dev/null)\" ]; then npx prisma migrate deploy; else npx prisma db push --accept-data-loss; fi && (npx tsx cron.ts &) && node server.js"]
+# The command will install project-specific dependencies and start both the emulator and Next.js
+CMD ["sh", "-c", "npm install && firebase emulators:exec --project gw2-alliance-manager 'npm run dev'"]

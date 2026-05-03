@@ -1,6 +1,6 @@
 import { google } from 'googleapis';
 import { NextRequest, NextResponse } from 'next/server';
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/firebase-admin";
 import { encrypt } from "@/lib/crypto";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -45,22 +45,23 @@ export async function GET(req: NextRequest) {
     // Encrypt and save
     const encryptedToken = tokens.refresh_token ? encrypt(tokens.refresh_token) : null;
 
-    const settings = await prisma.systemSettings.findFirst();
-    if (settings) {
-      await prisma.systemSettings.update({
-        where: { id: settings.id },
-        data: {
-          backupRefreshToken: encryptedToken || settings.backupRefreshToken,
-          backupEmail: email || settings.backupEmail,
-        }
-      });
+    const settingsRef = db.collection("settings").doc("system");
+    const settingsDoc = await settingsRef.get();
+    
+    const updateData: any = {
+      backupEmail: email || null,
+      updatedAt: new Date()
+    };
+    if (encryptedToken) {
+      updateData.backupRefreshToken = encryptedToken;
+    }
+
+    if (settingsDoc.exists) {
+      await settingsRef.update(updateData);
     } else {
-      await prisma.systemSettings.create({
-        data: {
-          allianceName: "Alliance",
-          backupRefreshToken: encryptedToken,
-          backupEmail: email,
-        }
+      await settingsRef.set({
+        allianceName: "Alliance",
+        ...updateData
       });
     }
 

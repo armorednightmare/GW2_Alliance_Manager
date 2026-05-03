@@ -5,7 +5,7 @@ import { Inter } from "next/font/google";
 import Providers from "./components/Providers";
 import Header from "./components/Header";
 import Sidebar from "./components/Sidebar";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/firebase-admin";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -26,7 +26,8 @@ export default async function RootLayout({
   
   let settings = null;
   try {
-    settings = await prisma.systemSettings.findFirst();
+    const settingsSnapshot = await db.collection("settings").doc("system").get();
+    settings = settingsSnapshot.exists ? settingsSnapshot.data() : null;
   } catch (e) {}
 
   const customStyle = settings ? {
@@ -39,19 +40,24 @@ export default async function RootLayout({
   if (!allianceName) {
     let allianceGuild = null;
     try {
-      allianceGuild = await prisma.guild.findFirst({ where: { isAllianceGuild: true } });
+      const allianceGuildSnapshot = await db.collection("guilds").where("isAllianceGuild", "==", true).limit(1).get();
+      allianceGuild = allianceGuildSnapshot.empty ? null : allianceGuildSnapshot.docs[0].data();
     } catch (e) {}
     allianceName = allianceGuild ? `${allianceGuild.name} [${allianceGuild.tag}]` : "Allianz Manager";
   }
 
   const logoUrl = settings?.logoUrl || null;
+  
+  const safeAllianceName = String(allianceName || "Allianz Manager");
+  const safeLogoUrl = logoUrl ? String(logoUrl) : null;
+  const safeCustomStyle = JSON.parse(JSON.stringify(customStyle));
 
   return (
     <html lang="de">
-      <body className={inter.className} style={customStyle}>
+      <body className={inter.className} style={safeCustomStyle}>
         <Providers>
           <div className="app-wrapper">
-            <Header allianceName={allianceName} logoUrl={logoUrl} />
+            <Header allianceName={safeAllianceName} logoUrl={safeLogoUrl} />
             <div className="main-content">
               {session && <Sidebar />}
               <main className="page-content">

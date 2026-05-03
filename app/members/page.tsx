@@ -1,29 +1,41 @@
 export const dynamic = 'force-dynamic';
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/firebase-admin";
 import MembersClient from "./MembersClient";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getMemberVisibilityFilter, AuthUser, canSeeRank } from "@/lib/permissions";
+import { sanitizeData } from "@/lib/utils";
 
 export default async function MembersPage() {
   const session = await getServerSession(authOptions);
+  if (!session) redirect("/login");
   const user = (session as any)?.user as AuthUser | undefined;
 
-  const filter = getMemberVisibilityFilter(user);
+  const membersSnapshot = await db.collection("members").orderBy("accountName", "asc").get();
+  let members = membersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
 
-  const members = await prisma.member.findMany({
-    where: filter as any,
-    include: { guilds: { include: { guild: true } } },
-    orderBy: { accountName: 'asc' }
-  });
+  // Filtering based on role (Previously handled by database permissions)
+  if (!user || user.role === "WEB_MEMBER") {
+     members = members.filter((m: any) => m.isAllianceMember);
+  } else if (user.role === "GUILD_LEADER") {
+     const managedIds = user.subGuildIds || [];
+     members = members.filter((m: any) => 
+        m.isAllianceMember || 
+        (m.guilds || []).some((g: any) => managedIds.includes(g.id))
+     );
+  }
 
-  // Mask ranks for guilds the user is not part of
+  // Mask ranks for guilds the user is not part of, and serialize Timestamps
   const maskedMembers = members.map(m => ({
     ...m,
-    guilds: m.guilds.map(mg => ({
+    joinedAt: m.joinedAt?.toDate ? m.joinedAt.toDate().toISOString() : m.joinedAt,
+    lastSeenAt: m.lastSeenAt?.toDate ? m.lastSeenAt.toDate().toISOString() : m.lastSeenAt,
+    guilds: (m.guilds || []).map((mg: any) => ({
       ...mg,
-      rank: canSeeRank(user, mg.guild) ? mg.rank : ""
+      rank: canSeeRank(user, mg as any) ? mg.rank : "",
+      lastSeenAt: mg.lastSeenAt?.toDate ? mg.lastSeenAt.toDate().toISOString() : mg.lastSeenAt,
     }))
   }));
 
@@ -39,7 +51,7 @@ export default async function MembersPage() {
             : " Sie sehen Allianzmitglieder sowie Mitglieder Ihrer eigenen Gilde."}
       </p>
 
-      <MembersClient initialMembers={maskedMembers as any} />
+      <MembersClient initialMembers={sanitizeData(maskedMembers)} />
     </div>
   );
 }

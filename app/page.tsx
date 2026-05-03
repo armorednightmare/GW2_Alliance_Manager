@@ -1,38 +1,68 @@
 export const dynamic = 'force-dynamic';
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/firebase-admin";
 import Link from "next/link";
 import "./Dashboard.css";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { getHistoryVisibilityFilter } from "@/lib/permissions";
+import { sanitizeData } from "@/lib/utils";
+import DateDisplay from "./components/DateDisplay";
 
 export default async function Dashboard() {
-  const activeMembersInDanger = await prisma.member.findMany({
-    where: { isAllianceMember: true, wvwMember: false, status: "ACTIVE" },
-    include: { guilds: { include: { guild: true } } }
-  });
+  const membersRef = db.collection("members");
+  
+  const inDangerSnapshot = await membersRef
+    .where("isAllianceMember", "==", true)
+    .where("wvwMember", "==", false)
+    .where("status", "==", "ACTIVE")
+    .get();
+  
+  const activeMembersInDanger = inDangerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-  const totalMembers = await prisma.member.count({ where: { status: "ACTIVE", isAllianceMember: true } });
-  const totalSubGuilds = await prisma.guild.count({ where: { isAllianceGuild: false } });
-  const settings = await prisma.systemSettings.findFirst();
+  const totalMembersSnapshot = await membersRef
+    .where("status", "==", "ACTIVE")
+    .where("isAllianceMember", "==", true)
+    .count().get();
+  const totalMembers = totalMembersSnapshot.data().count;
+
+  const totalSubGuildsSnapshot = await db.collection("guilds")
+    .where("isAllianceGuild", "==", false)
+    .count().get();
+  const totalSubGuilds = totalSubGuildsSnapshot.data().count;
+
+  const settingsDoc = await db.collection("settings").doc("system").get();
+  const settings = settingsDoc.exists ? settingsDoc.data() : null;
 
   let allianceName = settings?.allianceName;
   if (!allianceName) {
-    const allianceGuild = await prisma.guild.findFirst({ where: { isAllianceGuild: true } });
+    const allianceGuildSnapshot = await db.collection("guilds").where("isAllianceGuild", "==", true).limit(1).get();
+    const allianceGuild = allianceGuildSnapshot.empty ? null : allianceGuildSnapshot.docs[0].data();
     allianceName = allianceGuild ? `${allianceGuild.name} [${allianceGuild.tag}]` : "Allianz Manager";
   }
 
   const session = await getServerSession(authOptions);
+  if (!session) redirect("/login");
 
-  const historyWhere = await getHistoryVisibilityFilter((session as any)?.user);
+  // Note: collectionGroup requires an index in Firestore for filtering/ordering
+  // For now, we fetch across all member histories
+  const recentHistorySnapshot = await db.collectionGroup("history")
+    .orderBy("timestamp", "desc")
+    .limit(10)
+    .get();
 
+  const recentHistory = await Promise.all(recentHistorySnapshot.docs.map(async (doc) => {
+    const data = doc.data();
+    const memberDoc = await doc.ref.parent.parent?.get();
+    return sanitizeData({
+      id: doc.id,
+      ...data,
+      createdAt: data.timestamp?.toDate() || new Date(),
+      member: memberDoc?.data() || { accountName: "Unbekannt" }
+    });
+  }));
 
-  const recentHistory = await prisma.memberHistory.findMany({
-    where: historyWhere,
-    orderBy: { createdAt: 'desc' },
-    take: 10,
-    include: { member: true }
-  });
+  const sanitizedDangerMembers = sanitizeData(activeMembersInDanger);
 
   return (
     <div className="dashboard-container">
@@ -61,11 +91,11 @@ export default async function Dashboard() {
               <div className="success-msg">Alle aktiven Spieler haben die WvW-Gilde ausgewählt! 🎉</div>
             ) : (
               <ul className="danger-list">
-                {activeMembersInDanger.map((m: any) => (
+                {sanitizedDangerMembers.map((m: any) => (
                   <li key={m.id}>
                     <strong>{m.accountName}</strong>
                     <span className="guild-tag">
-                      {m.guilds?.map((mg: any) => `[${mg.guild.tag}]`).join(' ')}
+                      {(m.guilds || []).map((mg: any) => `[${mg.tag}]`).join(' ')}
                     </span>
                     <Link href={`/members/${m.id}`} className="btn-small">Profil</Link>
                   </li>
@@ -80,13 +110,17 @@ export default async function Dashboard() {
           <ul className="history-list">
             {recentHistory.map((h: any) => (
               <li key={h.id} style={{ padding: 0 }}>
-                <Link
-                  href={`/history#hist-${h.id}`}
-                  style={{ display: "flex", alignItems: "center", width: "100%", padding: "0.8rem", color: "inherit", textDecoration: "none" }}
-                >
-                  <span className="time" style={{ marginRight: '1rem', opacity: 0.7 }} suppressHydrationWarning>{h.createdAt.toLocaleTimeString('de-DE')}</span>
-                  <span className="event">{h.member.accountName} ➔ {h.eventType.replace(/_/g, ' ')}</span>
-                </Link>
+                  <Link
+                    href={`/history#hist-${h.id}`}
+                    style={{ display: "flex", alignItems: "center", width: "100%", padding: "0.8rem", color: "inherit", textDecoration: "none" }}
+                  >
+                    <DateDisplay 
+                      date={h.createdAt} 
+                      className="time" 
+                      style={{ marginRight: '1rem', opacity: 0.7 }} 
+                    />
+                    <span className="event">{h.member?.accountName || "Unbekannt"} ➔ {(h.eventType || h.type || "").replace(/_/g, ' ')}</span>
+                  </Link>
               </li>
             ))}
 

@@ -9,39 +9,36 @@ Der **GW2 Alliance Manager** ist eine moderne Web-Anwendung, die auf dem Next.js
 ### Kern-Komponenten:
 
 1. **Next.js App Router**: Verwendet Server Components für maximale Performance und Sicherheit bei Datenbankzugriffen.
-2. **Prisma ORM**: Dient als Abstraktionsschicht für die PostgreSQL-Datenbank und garantiert Typsicherheit im gesamten Projekt.
-3. **Guild Wars 2 API Integration**: Ein dedizierter Sync-Worker (`lib/gw2api.ts`), der Roster-Daten abruft und mit der Datenbank abgleicht.
-4. **NextAuth.js**: Verwaltet die Authentifizierung über Discord, Google und lokale E-Mail/Passwort-Konten.
+2. **Firebase Admin SDK**: Dient als Abstraktionsschicht für die Firestore NoSQL-Datenbank und die Authentifizierung.
+3. **Guild Wars 2 API Integration**: Ein dedizierter Sync-Worker (`lib/gw2api.ts`), der Roster-Daten abruft und mit Firestore abgleicht.
+4. **NextAuth.js**: Verwaltet die Authentifizierung über Discord, Google und lokale E-Mail/Passwort-Konten via Firebase-Adapter.
 
 ---
 
-## 💾 Datenmodell (ER-Diagramm Logik)
+## 💾 Datenmodell (NoSQL-Architektur)
 
-Das Datenmodell ist in `prisma/schema.prisma` definiert. Die wichtigsten Entitäten sind:
+Das Datenmodell ist für hohe Lese-Performance denormalisiert und in Firebase Firestore organisiert:
 
-### 1. Guild (Gilde)
+### 1. Guilds (Collection: `guilds`)
 Speichert Informationen über die in der Allianz vertretenen Gilden.
-- `id`: GW2 Guild ID (e.g. `XXXX-XXXX-XXXX`)
+- `id`: GW2 Guild ID (z.B. `XXXX-XXXX-XXXX`)
 - `name` / `tag`: Der offizielle Gildenname und das Kürzel.
-- `leaderToken`: Der API-Key des Gildenleiters, der für den Roster-Sync benötigt wird.
+- `leaderToken`: Der API-Key des Gildenleiters für den Sync.
 - `isAllianceGuild`: Markiert die Hauptgilde der Allianz.
-- `shareHistoryWithAlliance`: Ein Flag, mit dem Gildenleiter entscheiden können, ob interne Bewegungen für Außenstehende sichtbar sind.
 
-### 2. Member (Mitglied)
-Repräsentiert einen GW2-Account.
+### 2. Members (Collection: `members`)
+Repräsentiert einen GW2-Account. Enthält alle aktiven Gilden-Mitgliedschaften als Array.
 - `accountName`: GW2 Account (z.B. `User.1234`).
-- `status`: Markiert den aktuellen Status des Mitglieds:
-    - `ACTIVE`: Das Mitglied ist derzeit in mindestens einer der getrackten Gilden im Roster vorhanden.
-    - `INACTIVE_LEFT`: Das Mitglied war zuvor in einer Gilde, wird aber im aktuellen API-Roster nicht mehr gefunden (Gilde verlassen oder entfernt).
-    - `FRIEND`: Ein manuell hinzugefügter Gast oder ein Account, der nicht direkt zur Allianz gehört, aber in der Datenbank geführt wird.
-- `wvwMember` (Kampfgilde): Markiert, ob das Mitglied Teil einer Gilde ist, die als aktive WvW-Kampfgilde innerhalb der Allianz registriert ist.
-- `isAllianceMember` (Allianz): Gibt an, ob der Account offiziell zum Kern-Allianz-Verbund gehört.
-- `guild` / `subGuild`: Beziehungen zur Haupt-Allianzgilde und zur spezifischen Kampfgilde.
+- `status`: `ACTIVE`, `INACTIVE_LEFT`, `FRIEND`.
+- `guilds`: Ein Array von Objekten `{id, name, tag, rank, isAllianceGuild, lastSeenAt}`.
+- `manualRole` / `comment`: Manuelle Notizen und Rollen.
 
-### 3. MemberHistory (Ereignisverlauf)
-Protokolliert alle wichtigen Ereignisse pro Mitglied.
-- `eventType`: `JOINED`, `LEFT`, `RANK_CHANGE`, `WVW_STATUS_CHANGE`, `COMMENT_ADDED`, `COMMENT_CHANGED`.
-- `oldValue` / `newValue`: Dokumentiert Änderungen (z.B. von Rang A zu Rang B).
+### 3. History (Sub-Collection: `members/{id}/history`)
+Protokolliert Ereignisse pro Mitglied.
+- `eventType`: `JOINED`, `LEFT`, `RANK_CHANGE`, `WVW_STATUS_CHANGE`, `COMMENT_CHANGED` etc.
+- `description`: Textuelle Beschreibung des Ereignisses.
+- `oldValue` / `newValue`: Dokumentiert Änderungen.
+- `timestamp`: ISO-Datum der Änderung.
 
 ---
 
@@ -63,15 +60,15 @@ Die Anwendung nutzt ein Rollensystem (`lib/permissions.ts`), um den Zugriff zu k
 Die Synchronisation erfolgt in drei Phasen (`lib/gw2api.ts`):
 
 1. **API-Fetch**: Für jede registrierte Gilde wird das Roster über die GW2 API abgerufen.
-2. **Abgleich (Diffing)**: Die Daten werden mit der bestehenden Datenbank verglichen.
-3. **Historisierung**: Jede Änderung (z.B. Rangänderung oder Austritt) wird automatisch als neuer Eintrag in `MemberHistory` gespeichert.
+2. **Abgleich (Diffing)**: Die API-Daten werden mit den Dokumenten in Firestore verglichen.
+3. **Historisierung**: Jede Änderung wird als Dokument in der `history` Sub-Collection des Mitglieds gespeichert.
 
-Ein Hintergrund-Worker (`lib/sync-worker.ts`) kann konfiguriert werden, um diese Aufgabe in regelmäßigen Intervallen (Standard: 60 Minuten) automatisch im laufenden Docker-Container auszuführen.
+Der Sync kann manuell im Admin-Panel oder automatisiert via Cron/Firebase Functions ausgelöst werden.
 
 ---
 
 ## 🛠 Entwicklung & Wartung
 
-- **Linter**: `npm run lint` zum Überprüfen der Code-Qualität.
-- **Datenbank-Migrationen**: Änderungen am Schema in `prisma/schema.prisma` vornehmen und mit `npx prisma db push` anwenden.
-- **Docker-Logs**: `docker logs -f gw2_alliance_manager-web-1` zum Überwachen des Synchronisations-Workers.
+- **Firebase Emulator**: Lokale Entwicklung läuft via `docker-compose` und nutzt den Firestore/Auth Emulator.
+- **Data Cleanup**: `docker exec gw2-web-firebase npx tsx scripts/clear-all-firebase.ts` zum Leeren der Emulator-Datenbank.
+- **Docker-Logs**: `docker logs -f gw2-web-firebase` zum Überwachen der Server-Logs.

@@ -1,52 +1,59 @@
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/firebase-admin";
 import "./MemberProfile.css";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { updateMemberComment, addMemberToManualGuild, removeMemberFromManualGuild, updateDiscordName } from "./actions";
 import { getUserDiscordRoles } from "@/lib/discord";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { canEditMember, AuthUser, canSeeRank } from "@/lib/permissions";
 import DateDisplay from "@/app/components/DateDisplay";
+import { sanitizeData } from "@/lib/utils";
 
 
 export default async function MemberDetailPage({ params }: { params: { id: string } }) {
-  const member = await prisma.member.findUnique({
-    where: { id: params.id },
-    include: {
-      guilds: {
-        include: { guild: true }
-      },
-      linkedUser: true,
-      history: {
-        orderBy: { createdAt: 'desc' },
-        take: 20
-      }
-    }
-  });
+  const memberDoc = await db.collection("members").doc(params.id).get();
+  
+  if (!memberDoc.exists) return notFound();
+  
+  const member = { id: memberDoc.id, ...memberDoc.data() } as any;
+
+  // Linked User lookup
+  const linkedUserSnapshot = await db.collection("users").where("memberId", "==", params.id).limit(1).get();
+  const linkedUser = linkedUserSnapshot.empty ? null : { id: linkedUserSnapshot.docs[0].id, ...linkedUserSnapshot.docs[0].data() };
+  member.linkedUser = linkedUser;
+
+  // History fetch from sub-collection
+  const historySnapshot = await memberDoc.ref.collection("history").orderBy("timestamp", "desc").limit(20).get();
+  member.history = historySnapshot.docs.map(doc => ({ 
+    id: doc.id, 
+    ...doc.data(),
+    createdAt: doc.data().timestamp?.toDate() || new Date()
+  }));
 
   if (!member) return notFound();
 
   const session = await getServerSession(authOptions);
+  if (!session) redirect("/login");
   const user = (session as any)?.user as AuthUser | undefined;
 
   // Mask ranks for guilds the user is not part of
-  const maskedGuilds = member.guilds.map(mg => ({
+  const maskedGuilds = (member.guilds || []).map((mg: any) => ({
     ...mg,
-    rank: canSeeRank(user, mg.guild) ? mg.rank : ""
+    rank: canSeeRank(user, mg as any) ? mg.rank : ""
   }));
 
-  const memberGuildIds = member.guilds.map(g => g.guildId);
+  const memberGuildIds = (member.guilds || []).map((g: any) => g.id);
 
   // Mask history RANK_CHANGE events
-  const maskedHistory = member.history.map(item => {
+  const maskedHistory = (member.history || []).map((item: any) => {
     if (item.eventType === "RANK_CHANGE") {
       // RANK_CHANGE values are formatted as "Rank (TAG)"
       // We try to extract the TAG and check permissions
       const tagMatch = item.newValue?.match(/\(([^)]+)\)/) || item.oldValue?.match(/\(([^)]+)\)/);
       if (tagMatch) {
          const tag = tagMatch[1];
-         const guild = member.guilds.find(mg => mg.guild.tag === tag);
-         if (guild && !canSeeRank(user, guild.guild)) {
+         const guild = (member.guilds || []).find((mg: any) => mg.tag === tag);
+         if (guild && !canSeeRank(user, guild as any)) {
            return {
              ...item,
              oldValue: item.oldValue ? "" : null,
@@ -57,6 +64,10 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
     }
     return item;
   });
+
+  const sanitizedMember = sanitizeData(member);
+  const sanitizedHistory = sanitizeData(maskedHistory);
+  const sanitizedGuilds = sanitizeData(maskedGuilds);
 
   // --- Visibility Check ---
   // If not alliance member, only Admin or their Guild Leader can see the profile
@@ -71,13 +82,21 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
     }
   }
 
-  const manualRoles = await prisma.manualRole.findMany({ orderBy: { name: 'asc' } });
-  const manualGuilds = await prisma.guild.findMany({ where: { isManual: true }, orderBy: { name: 'asc' } });
+  const manualRolesSnapshot = await db.collection("roles").orderBy("name", "asc").get();
+  const manualRoles = manualRolesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+  const manualGuildsSnapshot = await db.collection("guilds").where("isManual", "==", true).get();
+  const manualGuilds = manualGuildsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    .sort((a: any, b: any) => a.name.localeCompare(b.name));
 
   let discordRoles: any[] = [];
   if (member.linkedUser?.discordId) {
     discordRoles = await getUserDiscordRoles(member.linkedUser.discordId);
   }
+
+  const sanitizedRoles = sanitizeData(discordRoles);
+  const sanitizedManualRoles = sanitizeData(manualRoles);
+  const sanitizedManualGuilds = sanitizeData(manualGuilds);
 
   const isMe = user?.id && user.id === member.linkedUser?.id;
   const hasEditPerms = canEditMember(user, memberGuildIds);
@@ -85,28 +104,28 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
 
   return (
     <div>
-      <h1>Profil: {member.accountName}</h1>
+      <h1>Profil: {sanitizedMember.accountName}</h1>
 
       <div className="member-profile-grid">
         <div className="member-profile-main">
           <h3>Allgemeine Details</h3>
-          <p><strong>Status:</strong> {member.status}</p>
-          <p><strong>WvW Vertreten:</strong> {member.wvwMember ? 'Ja' : 'Nein'}</p>
-          <p><strong>Allianz Mitglied:</strong> {member.isAllianceMember ? 'Ja' : 'Nein'}</p>
-          {member.invitedBy && <p><strong>Eingeladen von:</strong> {member.invitedBy}</p>}
+          <p><strong>Status:</strong> {sanitizedMember.status}</p>
+          <p><strong>WvW Vertreten:</strong> {sanitizedMember.wvwMember ? 'Ja' : 'Nein'}</p>
+          <p><strong>Allianz Mitglied:</strong> {sanitizedMember.isAllianceMember ? 'Ja' : 'Nein'}</p>
+          {sanitizedMember.invitedBy && <p><strong>Eingeladen von:</strong> {sanitizedMember.invitedBy}</p>}
 
           <h3 style={{ marginTop: '1.5rem' }}>Gilden & Ränge</h3>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
-            {maskedGuilds.map((mg: any) => (
+            {sanitizedGuilds.map((mg: any) => (
               <div key={mg.id} style={{ 
                 background: 'rgba(255,255,255,0.05)', 
                 padding: '0.8rem', 
                 borderRadius: '4px',
-                borderLeft: mg.guild.isAllianceGuild ? '3px solid var(--accent-color)' : 'none'
+                borderLeft: mg.isAllianceGuild ? '3px solid var(--accent-color)' : 'none'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong>{mg.guild.name} [{mg.guild.tag}] {mg.guild.isManual && '(Manuell)'}</strong>
-                  {mg.guild.isManual && canEditMember(user, memberGuildIds) && (
+                  <strong>{mg.guild?.name || mg.name} [{mg.guild?.tag || mg.tag}] {mg.isManual && '(Manuell)'}</strong>
+                  {(mg.guild?.isManual || mg.isManual) && hasEditPerms && (
                     <form action={removeMemberFromManualGuild}>
                       <input type="hidden" name="memberGuildId" value={mg.id} />
                       <button type="submit" style={{ background: 'transparent', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '1.2rem'}} title="Entfernen">
@@ -118,7 +137,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                 {mg.rank && <div style={{ fontSize: '0.9rem', opacity: 0.7 }}>Rang: {mg.rank}</div>}
               </div>
             ))}
-            {member.guilds.length === 0 && <p style={{ opacity: 0.6 }}>Keinen Gilden zugeordnet.</p>}
+            {sanitizedMember.guilds.length === 0 && <p style={{ opacity: 0.6 }}>Keinen Gilden zugeordnet.</p>}
           </div>
 
           <hr style={{ margin: '1.5rem 0', borderColor: 'rgba(255,255,255,0.1)' }} />
@@ -130,7 +149,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
               {effectiveDiscordName ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <span style={{ fontSize: '1.2rem', fontWeight: 'bold' }}>{effectiveDiscordName}</span>
-                  {member.customDiscordName ? (
+                  {sanitizedMember.customDiscordName ? (
                     <span style={{fontSize:'0.8rem', opacity:0.6}}>(Manuell überschrieben)</span>
                   ) : (
                     <span style={{fontSize:'0.8rem', color:'#5865F2'}}>(Verknüpft ✅)</span>
@@ -140,9 +159,9 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                 <p style={{ opacity: 0.6, fontSize: '0.9rem', margin: 0 }}>Keine Discord-Daten vorhanden.</p>
               )}
 
-              {member.linkedUser?.discordId && discordRoles.length > 0 && (
+              {sanitizedMember.linkedUser?.discordId && sanitizedRoles.length > 0 && (
                 <div style={{ display: "flex", gap: "0.5rem", flexWrap: "wrap", marginTop: "1rem" }}>
-                  {discordRoles.map((r: any) => (
+                  {sanitizedRoles.map((r: any) => (
                     <span key={r.id} style={{
                       background: r.color ? `#${r.color.toString(16).padStart(6, '0')}` : "var(--primary-color)",
                       color: "white", padding: "0.2rem 0.6rem", borderRadius: "12px", fontSize: "0.75rem",
@@ -158,9 +177,9 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
             {(isMe || hasEditPerms) && (
               <form action={updateDiscordName} style={{ marginTop: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', background: 'rgba(255,255,255,0.05)', padding: '1rem', borderRadius: '8px' }}>
                 <label style={{ fontSize: '0.9rem', opacity: 0.8 }}>Discord-Namen anpassen</label>
-                <input type="hidden" name="memberId" value={member.id} />
+                <input type="hidden" name="memberId" value={sanitizedMember.id} />
                 <div className="discord-name-row">
-                  <input type="text" name="customDiscordName" defaultValue={member.customDiscordName || member.linkedUser?.name || ""} placeholder="Neuer Discord Name..." style={{ flex: 1, padding: '0.5rem', background: '#1e1e1e', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }} />
+                  <input type="text" name="customDiscordName" defaultValue={sanitizedMember.customDiscordName || sanitizedMember.linkedUser?.name || ""} placeholder="Neuer Discord Name..." style={{ flex: 1, padding: '0.5rem', background: '#1e1e1e', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }} />
                   <button type="submit" style={{ padding: '0.5rem 1rem', background: 'var(--accent-color)', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>Speichern</button>
                 </div>
                 <p style={{ fontSize: '0.8rem', opacity: 0.6, margin: 0 }}>Leer lassen und speichern, um wieder den Namen der Web-Verknüpfung zu nutzen.</p>
@@ -174,9 +193,9 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                 <input type="hidden" name="memberId" value={member.id} />
 
                 <label>Manuelle Rolle</label>
-                <select name="manualRole" defaultValue={member.manualRole || ""} style={{ padding: '0.5rem', background: '#1e1e1e', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}>
+                <select name="manualRole" defaultValue={sanitizedMember.manualRole || ""} style={{ padding: '0.5rem', background: '#1e1e1e', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}>
                   <option value="" style={{ background: '#1e1e1e', color: 'white' }}>-- Keine --</option>
-                  {manualRoles.map((r: any) => (
+                  {sanitizedManualRoles.map((r: any) => (
                     <option key={r.id} value={r.name} style={{ background: '#1e1e1e', color: 'white' }}>{r.name}</option>
                   ))}
                 </select>
@@ -198,8 +217,8 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                 <label style={{ fontSize: '0.9rem', opacity: 0.8 }}>Gilde</label>
                 <select name="guildId" required style={{ padding: '0.5rem', background: '#1e1e1e', color: 'white', border: '1px solid rgba(255,255,255,0.2)', borderRadius: '4px' }}>
                   <option value="" style={{ background: '#1e1e1e', color: 'white' }}>-- Bitte wählen --</option>
-                  {manualGuilds.map((g: any) => {
-                    const isAlreadyMember = member.guilds.some((mg: any) => mg.guildId === g.id);
+                  {sanitizedManualGuilds.map((g: any) => {
+                    const isAlreadyMember = (sanitizedMember.guilds || []).some((mg: any) => mg.id === g.id);
                     if (isAlreadyMember) return null;
                     return (
                       <option key={g.id} value={g.id} style={{ background: '#1e1e1e', color: 'white' }}>
@@ -223,7 +242,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
         <div className="member-profile-history">
           <h3>Aktivitäten / Historie</h3>
           <ul style={{ listStyle: 'none', padding: 0 }}>
-            {maskedHistory
+            {sanitizedHistory
               .filter((item: any) => {
                 const isCommentEvent = item.eventType === "COMMENT_ADDED" || item.eventType === "COMMENT_CHANGED";
                 if (isCommentEvent) {
@@ -235,10 +254,10 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
               .map((item: any) => (
                 <li key={item.id} style={{ marginBottom: '1rem', borderLeft: '2px solid var(--accent-color)', paddingLeft: '1rem' }}>
                   <DateDisplay 
-                    date={item.createdAt} 
+                    date={item.timestamp || item.createdAt} 
                     style={{ fontSize: '0.8rem', opacity: 0.7, display: 'block' }} 
                   />
-                  <strong style={{ fontSize: '0.85rem', color: 'var(--accent-color)' }}>{item.eventType.replace(/_/g, ' ')}</strong>
+                  <strong style={{ fontSize: '0.85rem', color: 'var(--accent-color)' }}>{(item.eventType || item.type || "UNKNOWN").replace(/_/g, ' ')}</strong>
                   {item.oldValue || item.newValue ? (
                     <div style={{ marginTop: '0.2rem', fontSize: '0.9rem' }}>
                       {item.oldValue && <span style={{ opacity: 0.6, textDecoration: 'line-through' }}>{item.oldValue}</span>}
@@ -248,7 +267,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                   ) : null}
                 </li>
               ))}
-            {member.history.length === 0 && <p>Keine Historien-Einträge vorhanden.</p>}
+            {sanitizedMember.history.length === 0 && <p>Keine Historien-Einträge vorhanden.</p>}
           </ul>
         </div>
       </div>

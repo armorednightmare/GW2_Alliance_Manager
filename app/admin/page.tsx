@@ -3,7 +3,7 @@ import { saveThemeSettings, saveSyncSettings, saveBackupSettings } from "./actio
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/firebase-admin";
 import UserManagementClient from "./UserManagementClient";
 import GuildManagementClient from "./GuildManagementClient";
 import RoleManagementClient from "./RoleManagementClient";
@@ -11,6 +11,7 @@ import ImportManagementClient from "./ImportManagementClient";
 import BackupManagementClient from "./BackupManagementClient";
 import { getBackupList } from "./actions";
 import { canManageUsers, canManageGuilds, canEditTheme, isHigherStaff } from "@/lib/permissions";
+import { sanitizeData } from "@/lib/utils";
 
 const PANEL_STYLE = {
   marginTop: "2rem",
@@ -35,37 +36,57 @@ export default async function AdminPage() {
   }
 
   // --- Data Fetching ---
-  const settings = await prisma.systemSettings.findFirst();
-  const allianceGuild = await prisma.guild.findFirst({ where: { isAllianceGuild: true } });
+  const settingsSnapshot = await db.collection("settings").doc("system").get();
+  const settings = settingsSnapshot.exists ? settingsSnapshot.data() : null;
+
+  const allianceGuildSnapshot = await db.collection("guilds").where("isAllianceGuild", "==", true).limit(1).get();
+  const allianceGuild = allianceGuildSnapshot.empty ? null : allianceGuildSnapshot.docs[0].data();
   const defaultAllianceName = allianceGuild ? `${allianceGuild.name} [${allianceGuild.tag}]` : "Allianz Manager";
   
   // Users: only for Higher Staff
-  const users = isHigherStaff(user) 
-    ? await prisma.user.findMany({
-        orderBy: { createdAt: "desc" },
-        include: { 
-          member: { select: { accountName: true } },
-          managedGuilds: { select: { id: true } }
-        },
-      })
-    : [];
+  let users: any[] = [];
+  if (isHigherStaff(user)) {
+    const usersSnapshot = await db.collection("users").orderBy("createdAt", "desc").get();
+    users = await Promise.all(usersSnapshot.docs.map(async (doc) => {
+        const u = doc.data();
+        let memberName = "";
+        if (u.memberId) {
+            const mDoc = await db.collection("members").doc(u.memberId).get();
+            memberName = mDoc.exists ? mDoc.data()?.accountName : "";
+        }
+        return {
+            id: doc.id,
+            ...u,
+            createdAt: u.createdAt?.toDate ? u.createdAt.toDate().toISOString() : u.createdAt,
+            lastLoginAt: u.lastLoginAt?.toDate ? u.lastLoginAt.toDate().toISOString() : u.lastLoginAt,
+            member: { accountName: memberName },
+            managedGuilds: (u.managedGuildIds || []).map((id: string) => ({ id }))
+        };
+    }));
+  }
 
   // Full Guild list for User Management dropdowns
-  const allGuilds = await prisma.guild.findMany({
-    orderBy: { name: "asc" }
+  const allGuildsSnapshot = await db.collection("guilds").orderBy("name", "asc").get();
+  const allGuilds = allGuildsSnapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      createdAt: data.createdAt?.toDate ? data.createdAt.toDate().toISOString() : data.createdAt,
+      updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt,
+    };
   });
 
   // Guilds: Filtered for the current user's view in Guild Management
   const subGuildIds = user.subGuildIds || [];
-  const guildWhere = isHigherStaff(user) ? {} : { id: { in: subGuildIds } };
-  const guilds = await prisma.guild.findMany({ 
-    where: (guildWhere as any),
-    orderBy: { name: "asc" } 
-  });
+  let guilds = allGuilds;
+  if (!isHigherStaff(user)) {
+    guilds = allGuilds.filter(g => subGuildIds.includes(g.id));
+  }
 
   // Roles: only for Higher Staff
   const manualRoles = isHigherStaff(user)
-    ? await prisma.manualRole.findMany({ orderBy: { name: "asc" } })
+    ? (await db.collection("roles").orderBy("name", "asc").get()).docs.map(doc => ({ id: doc.id, ...doc.data() }))
     : [];
 
   const initialBackups = user.role === "ADMIN" ? await getBackupList() : [];
@@ -84,7 +105,7 @@ export default async function AdminPage() {
         <>
           <div style={PANEL_STYLE}>
             <h2 style={{ margin: "0 0 0.5rem 0" }}>👥 User Verwaltung</h2>
-            <UserManagementClient users={users} guilds={allGuilds} />
+            <UserManagementClient users={sanitizeData(users)} guilds={sanitizeData(allGuilds)} />
           </div>
 
           <div style={PANEL_STYLE}>
@@ -107,7 +128,7 @@ export default async function AdminPage() {
               : "Gilden mit Leader API Key hinterlegen und einen manuellen Roster-Sync auslösen."
             }
           </p>
-          <GuildManagementClient guilds={guilds} session={session} />
+          <GuildManagementClient guilds={sanitizeData(guilds)} session={sanitizeData(session)} />
 
           {/* Global settings only for Higher Staff */}
           {isHigherStaff(user) && (
@@ -153,7 +174,7 @@ export default async function AdminPage() {
                   <button type="submit" className="btn-primary" style={{ width: "fit-content", padding: "0.5rem 2rem" }}>Backup-Plan Speichern</button>
                 </div>
               </form>
-              <BackupManagementClient initialBackups={initialBackups} backupEmail={settings?.backupEmail} />
+              <BackupManagementClient initialBackups={sanitizeData(initialBackups)} backupEmail={settings?.backupEmail} />
             </div>
           )}
         </div>
@@ -189,7 +210,7 @@ export default async function AdminPage() {
             </div>
             <button type="submit" className="btn-primary">Speichern</button>
           </form>
-          <RoleManagementClient roles={manualRoles} />
+          <RoleManagementClient roles={sanitizeData(manualRoles)} />
         </div>
       )}
     </div>

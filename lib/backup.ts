@@ -3,7 +3,7 @@ import { exec } from 'child_process';
 import util from 'util';
 import fs from 'fs';
 import path from 'path';
-import { prisma } from './prisma';
+import { db } from './firebase-admin';
 import { decrypt } from './crypto';
 
 const execAsync = util.promisify(exec);
@@ -19,7 +19,8 @@ export async function getGoogleDriveClient() {
   const clientSecret = process.env.GOOGLE_CLIENT_SECRET;
   
   // 1. Try Database (Encrypted)
-  const settings = await prisma.systemSettings.findFirst();
+  const settingsSnapshot = await db.collection("settings").doc("system").get();
+  const settings = settingsSnapshot.exists ? settingsSnapshot.data() : null;
   let refreshToken = settings?.backupRefreshToken;
   
   if (refreshToken) {
@@ -91,28 +92,57 @@ export async function runDatabaseBackup() {
     return;
   }
 
-  // 2. Dump the database
-  const dbUrlRaw = process.env.DATABASE_URL;
-  if (!dbUrlRaw) {
-    console.error("❌ DATABASE_URL is not set.");
-    return;
-  }
-  
-  // pg_dump does not support Prisma's ?schema=public URL parameter
-  const dbUrl = dbUrlRaw.split('?')[0];
-  
+  // 2. Export Firestore Data to JSON
   const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-  const filename = `gw2_alliance_backup_${timestamp}.sql`;
-  const dumpPath = path.join('/tmp', filename);
+  const filename = `gw2_alliance_firestore_backup_${timestamp}.json`;
+  const backupPath = path.join('/tmp', filename);
   
-  console.log("💾 Running pg_dump...");
+  console.log("💾 Exporting Firestore collections to JSON...");
   try {
-    // --clean drops the DB items before recreating them if restored.
-    // Format is plain SQL but could be custom. Plain text is easiest to read.
-    await execAsync(`pg_dump --clean "${dbUrl}" > ${dumpPath}`);
+    const backupData: any = {
+      version: "1.0",
+      timestamp: new Date().toISOString(),
+      collections: {}
+    };
+
+    const collections = ["users", "members", "guilds", "roles", "settings"];
+
+    for (const colName of collections) {
+      const snapshot = await db.collection(colName).get();
+      const docs = await Promise.all(snapshot.docs.map(async doc => {
+        const data = doc.data();
+        
+        // Recursively convert Timestamps to ISO strings for better readability in JSON
+        // (Optional, but makes the backup more "human readable" and easier to handle in other tools)
+        const sanitize = (obj: any): any => {
+          if (!obj || typeof obj !== 'object') return obj;
+          if (obj.toDate && typeof obj.toDate === 'function') return obj.toDate().toISOString();
+          if (Array.isArray(obj)) return obj.map(sanitize);
+          const newObj: any = {};
+          for (const key in obj) {
+            newObj[key] = sanitize(obj[key]);
+          }
+          return newObj;
+        };
+
+        const docData = { id: doc.id, ...sanitize(data) };
+
+        // Handle Sub-collections (History for members)
+        if (colName === "members") {
+          const historySnapshot = await doc.ref.collection("history").get();
+          (docData as any).history = historySnapshot.docs.map(h => ({ id: h.id, ...sanitize(h.data()) }));
+        }
+
+        return docData;
+      }));
+
+      backupData.collections[colName] = docs;
+    }
+
+    fs.writeFileSync(backupPath, JSON.stringify(backupData, null, 2));
   } catch (e: any) {
-    console.error("❌ pg_dump failed:", e.message);
-    if (fs.existsSync(dumpPath)) fs.unlinkSync(dumpPath);
+    console.error("❌ Firestore export failed:", e.message);
+    if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
     return;
   }
   
@@ -125,8 +155,8 @@ export async function runDatabaseBackup() {
         parents: [targetFolderId!],
       },
       media: {
-        mimeType: 'application/x-sql',
-        body: fs.createReadStream(dumpPath),
+        mimeType: 'application/json',
+        body: fs.createReadStream(backupPath),
       },
       fields: 'id',
       supportsAllDrives: true,
@@ -135,14 +165,14 @@ export async function runDatabaseBackup() {
   } catch (e: any) {
     console.error("❌ Google Drive Upload failed:", e.message);
   } finally {
-    if (fs.existsSync(dumpPath)) fs.unlinkSync(dumpPath);
+    if (fs.existsSync(backupPath)) fs.unlinkSync(backupPath);
   }
   
   // 4. Implement Retention Strategy (delete old backups)
   console.log(`🧹 Checking retention (Max: ${MAX_BACKUPS})...`);
   try {
     const filesList = await drive.files.list({
-      q: `'${targetFolderId}' in parents and trashed=false and name contains 'gw2_alliance_backup'`,
+      q: `'${targetFolderId}' in parents and trashed=false and name contains 'gw2_alliance_firestore_backup'`,
       fields: 'files(id, name, createdTime)',
       orderBy: 'createdTime desc',
       supportsAllDrives: true,

@@ -3,6 +3,17 @@ import { useState, useEffect, useRef, useTransition } from "react";
 import Link from "next/link";
 import { fetchHistoryLogs } from "./actions";
 
+function getEventColor(eventType: string) {
+  if (!eventType) return "rgba(255,255,255,0.1)";
+  const type = eventType.toUpperCase();
+  if (type.includes("JOINED")) return "rgba(46, 204, 113, 0.4)"; // Grün
+  if (type.includes("LEFT") || type.includes("KICKED")) return "rgba(231, 76, 60, 0.4)"; // Rot
+  if (type.includes("RANK")) return "rgba(52, 152, 219, 0.4)"; // Blau
+  if (type.includes("WVW")) return "rgba(155, 89, 182, 0.4)"; // Lila
+  if (type.includes("COMMENT") || type.includes("ROLE")) return "rgba(241, 196, 15, 0.4)"; // Gelb
+  return "rgba(255,255,255,0.1)";
+}
+
 export default function HistoryClient({ initialHistory, initialTotal }: { initialHistory: any[], initialTotal: number }) {
   const highlightedRef = useRef<HTMLTableRowElement | null>(null);
 
@@ -140,22 +151,26 @@ export default function HistoryClient({ initialHistory, initialTotal }: { initia
                     <span style={{ 
                       padding: "0.3rem 0.6rem", 
                       borderRadius: "6px", 
-                      backgroundColor: "var(--primary-color)",
+                      backgroundColor: getEventColor(h.eventType || h.type),
                       fontSize: "0.85rem",
                       fontWeight: "bold",
-                      boxShadow: "0 2px 5px rgba(0,0,0,0.2)",
-                      ...(h.eventType === "LEFT" || h.eventType === "KICKED" ? { backgroundColor: "rgba(231, 76, 60, 0.5)" } : {})
+                      boxShadow: "0 2px 5px rgba(0,0,0,0.2)"
                     }}>
-                      {h.eventType}
+                      {(h.eventType || h.type || "UNKNOWN").replace(/_/g, " ")}
                     </span>
+                    {h.description && (
+                      <div style={{ fontSize: "0.8rem", opacity: 0.7, marginTop: "0.4rem" }}>
+                        {h.description}
+                      </div>
+                    )}
                   </td>
                   <td style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     {h.oldValue ? <span style={{ textDecoration: "line-through", opacity: 0.5, marginRight: "5px" }}>{h.oldValue}</span> : null}
                     {h.newValue ? <span style={{ color: "var(--accent-color)" }}>{h.newValue}</span> : "-"}
                   </td>
                   <td style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                    {h.memberId && h.member && (
-                      <Link href={`/members/${h.memberId}`} className="btn-details">Profil</Link>
+                    {(h.memberId || h.member?.id) && (
+                      <Link href={`/members/${h.memberId || h.member.id}`} className="btn-details">Profil</Link>
                     )}
                   </td>
                 </tr>

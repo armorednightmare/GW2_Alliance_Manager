@@ -31,3 +31,7 @@ yarn-error.log*
 
 # AI / Antigravity
 .gemini
+
+# Firebase
+*-debug.log
+.next_firebase/

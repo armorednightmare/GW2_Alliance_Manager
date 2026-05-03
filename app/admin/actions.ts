@@ -1,5 +1,5 @@
 "use server";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/firebase-admin";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -54,7 +54,9 @@ async function requireGuildPermission(guildId: string): Promise<UserSession> {
 // ── Theme Settings ───────────────────────────────────────────────────────────
 export async function saveThemeSettings(data: FormData) {
   await requireAdmin();
-  const existing = await prisma.systemSettings.findFirst();
+  const settingsRef = db.collection("settings").doc("system");
+  const doc = await settingsRef.get();
+  const existing = doc.exists ? doc.data() : null;
 
   const allianceName = data.has("allianceName") ? data.get("allianceName") as string : existing?.allianceName || "Alliance";
   const logoUrl = data.has("logoUrl") ? (data.get("logoUrl") as string || null) : existing?.logoUrl || null;
@@ -62,52 +64,48 @@ export async function saveThemeSettings(data: FormData) {
   const colorAccent = data.has("colorAccent") ? data.get("colorAccent") as string : existing?.colorAccent || "#27ae60";
   const colorBg = data.has("colorBg") ? data.get("colorBg") as string : existing?.colorBg || "#121212";
 
-  if (existing) {
-    await prisma.systemSettings.update({
-      where: { id: existing.id },
-      data: { allianceName, logoUrl, colorPrimary, colorAccent, colorBg },
-    });
-  } else {
-    await prisma.systemSettings.create({
-      data: { allianceName, logoUrl, colorPrimary, colorAccent, colorBg, apiSyncInterval: 60 },
-    });
-  }
+  await settingsRef.set({
+    ...existing,
+    allianceName, logoUrl, colorPrimary, colorAccent, colorBg
+  }, { merge: true });
+
   revalidatePath("/", "layout");
 }
 
 export async function saveSyncSettings(data: FormData) {
   await requireAllianceLeader();
-  const existing = await prisma.systemSettings.findFirst();
+  const settingsRef = db.collection("settings").doc("system");
+  const doc = await settingsRef.get();
+  const existing = doc.exists ? doc.data() : null;
+
   const apiSyncInterval = parseInt(data.get("apiSyncInterval") as string) || existing?.apiSyncInterval || 60;
 
-  if (existing) {
-    await prisma.systemSettings.update({
-      where: { id: existing.id },
-      data: { apiSyncInterval },
-    });
-  } else {
-    await prisma.systemSettings.create({
-      data: { apiSyncInterval, allianceName: "Alliance", colorPrimary: "#2c3e50", colorAccent: "#27ae60", colorBg: "#121212" },
-    });
-  }
+  await settingsRef.set({
+    ...existing,
+    apiSyncInterval,
+    allianceName: existing?.allianceName || "Alliance",
+    colorPrimary: existing?.colorPrimary || "#2c3e50",
+    colorAccent: existing?.colorAccent || "#27ae60",
+    colorBg: existing?.colorBg || "#121212"
+  }, { merge: true });
+
   revalidatePath("/", "layout");
 }
 
 export async function saveBackupSettings(data: FormData) {
   await requireAdmin();
-  const existing = await prisma.systemSettings.findFirst();
+  const settingsRef = db.collection("settings").doc("system");
+  const doc = await settingsRef.get();
+  const existing = doc.exists ? doc.data() : null;
+
   const backupCronSchedule = (data.get("backupCronSchedule") as string) || "0 3 * * 0";
 
-  if (existing) {
-    await prisma.systemSettings.update({
-      where: { id: existing.id },
-      data: { backupCronSchedule },
-    });
-  } else {
-    await prisma.systemSettings.create({
-      data: { backupCronSchedule, allianceName: "Alliance" },
-    });
-  }
+  await settingsRef.set({
+    ...existing,
+    backupCronSchedule,
+    allianceName: existing?.allianceName || "Alliance"
+  }, { merge: true });
+
   revalidatePath("/admin");
 }
 
@@ -149,25 +147,19 @@ export async function getBackupList() {
 
 export async function unlinkBackupAccount() {
   await requireAdmin();
-  const settings = await prisma.systemSettings.findFirst();
-  if (settings) {
-    await prisma.systemSettings.update({
-      where: { id: settings.id },
-      data: {
-        backupRefreshToken: null,
-        backupEmail: null,
-      }
-    });
-  }
+  const settingsRef = db.collection("settings").doc("system");
+  await settingsRef.update({
+    backupRefreshToken: null,
+    backupEmail: null,
+  });
   revalidatePath("/admin");
 }
 
 // ── User Management ──────────────────────────────────────────────────────────
 export async function changeUserRole(userId: string, role: string) {
   await requireAdmin();
-  await prisma.user.update({
-    where: { id: userId },
-    data: { role: role as any },
+  await db.collection("users").doc(userId).update({
+    role: role
   });
   revalidatePath("/admin");
 }
@@ -177,37 +169,30 @@ export async function changeUserRole(userId: string, role: string) {
  */
 export async function updateUserManagedGuilds(userId: string, guildIds: string[]) {
   await requireAdmin();
-  await prisma.user.update({
-    where: { id: userId },
-    data: {
-      managedGuilds: {
-        set: guildIds.map(id => ({ id }))
-      }
-    },
+  await db.collection("users").doc(userId).update({
+    managedGuildIds: guildIds
   });
   revalidatePath("/admin");
 }
 
 export async function deleteUser(userId: string) {
   await requireAdmin();
-  await prisma.user.delete({ where: { id: userId } });
+  await db.collection("users").doc(userId).delete();
   revalidatePath("/admin");
 }
 
 export async function resetUserPassword(userId: string, newPassword: string) {
   await requireAdmin();
-  await prisma.user.update({
-    where: { id: userId },
-    data: { passwordHash: newPassword },
+  await db.collection("users").doc(userId).update({
+    passwordHash: newPassword
   });
   revalidatePath("/admin");
 }
 
 export async function unlinkUserGw2(userId: string) {
   await requireAdmin();
-  await prisma.user.update({
-    where: { id: userId },
-    data: { memberId: null },
+  await db.collection("users").doc(userId).update({
+    memberId: null
   });
   revalidatePath("/admin");
 }
@@ -273,13 +258,15 @@ export async function addManualRole(data: FormData) {
   if (!name) throw new Error("Name ist erforderlich");
 
   try {
-    await prisma.manualRole.create({
-      data: { name, color: color || "#ffffff" }
+    const id = name.toLowerCase().replace(/\s+/g, "-");
+    await db.collection("roles").doc(id).set({
+      name,
+      color: color || "#ffffff"
     });
     revalidatePath("/admin", "layout");
     revalidatePath("/members", "layout");
   } catch (e) {
-    throw new Error("Rolle extistiert bereits oder Fehler beim Erstellen");
+    throw new Error("Fehler beim Erstellen der Rolle");
   }
 }
 
@@ -288,7 +275,7 @@ export async function deleteManualRole(data: FormData) {
   const id = data.get("id") as string;
   if (!id) return;
 
-  await prisma.manualRole.delete({ where: { id } });
+  await db.collection("roles").doc(id).delete();
   revalidatePath("/admin", "layout");
   revalidatePath("/members", "layout");
 }
@@ -302,13 +289,12 @@ export async function createManualUser(data: FormData) {
 
   if (!email || !password) throw new Error("Email und Passwort sind erforderlich");
 
-  await prisma.user.create({
-    data: {
-      email,
-      passwordHash: password, // In prod use bcrypt
-      name: name || null,
-      role: role || "WEB_MEMBER",
-    }
+  await db.collection("users").add({
+    email,
+    passwordHash: password, // In prod use bcrypt
+    name: name || null,
+    role: role || "WEB_MEMBER",
+    createdAt: new Date()
   });
 
   revalidatePath("/admin");
@@ -356,29 +342,24 @@ export async function addGuild(data: FormData) {
   const guildData = await guildRes.json();
 
   // 3. Upsert guild
-  await prisma.guild.upsert({
-    where: { id: guildId },
-    update: { name: guildData.name, tag: guildData.tag, leaderToken, isAllianceGuild },
-    create: {
-      id: guildId,
-      name: guildData.name,
-      tag: guildData.tag,
-      leaderToken,
-      isAllianceGuild,
-    },
-  });
+  await db.collection("guilds").doc(guildId).set({
+    name: guildData.name,
+    tag: guildData.tag,
+    leaderToken,
+    isAllianceGuild,
+    updatedAt: new Date()
+  }, { merge: true });
 
   // Assign to leader if it's a self-registration
   if (isGuildLeader) {
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        managedGuilds: {
-          connect: { id: guildId }
-        }
-      },
-    });
-
+    const userRef = db.collection("users").doc(user.id);
+    const userDoc = await userRef.get();
+    const managedGuildIds = userDoc.exists ? (userDoc.data()?.managedGuildIds || []) : [];
+    if (!managedGuildIds.includes(guildId)) {
+      await userRef.update({
+        managedGuildIds: [...managedGuildIds, guildId]
+      });
+    }
   }
 
   revalidatePath("/admin");
@@ -396,14 +377,13 @@ export async function addManualGuild(data: FormData) {
     throw new Error("Name und Tag sind erforderlich für eine manuelle Gilde.");
   }
 
-  await prisma.guild.create({
-    data: {
-      name,
-      tag,
-      isAllianceGuild,
-      isManual: true,
-      leaderToken: null
-    }
+  await db.collection("guilds").add({
+    name,
+    tag,
+    isAllianceGuild,
+    isManual: true,
+    leaderToken: null,
+    createdAt: new Date()
   });
 
   revalidatePath("/admin");
@@ -412,9 +392,8 @@ export async function addManualGuild(data: FormData) {
 
 export async function toggleAllianceGuild(guildId: string, status: boolean) {
   await requireAllianceLeader();
-  await prisma.guild.update({
-    where: { id: guildId },
-    data: { isAllianceGuild: status }
+  await db.collection("guilds").doc(guildId).update({
+    isAllianceGuild: status
   });
   revalidatePath("/admin");
   revalidatePath("/guilds");
@@ -423,24 +402,31 @@ export async function toggleAllianceGuild(guildId: string, status: boolean) {
 export async function deleteGuild(guildId: string) {
   await requireAllianceLeader();
 
-  // Find all members of this guild that are about to be orphaned
-  const membersInGuild = await prisma.memberGuild.findMany({
-    where: { guildId },
-    select: { memberId: true }
-  });
-  
-  await prisma.guild.delete({ where: { id: guildId } });
+  // 1. Delete the guild
+  await db.collection("guilds").doc(guildId).delete();
 
-  // Update members who now have no guilds left to INACTIVE_LEFT
-  for (const mg of membersInGuild) {
-    const remaining = await prisma.memberGuild.count({ where: { memberId: mg.memberId } });
-    if (remaining === 0) {
-       await prisma.member.update({
-         where: { id: mg.memberId },
-         data: { status: "INACTIVE_LEFT", isAllianceMember: false, wvwMember: false }
-       });
+  // 2. Find and update all members who were in this guild
+  // In NoSQL, we look for members where the 'guilds' array contains the guildId
+  const snapshot = await db.collection("members").where("guilds", "array-contains", { id: guildId }).get();
+  
+  const batch = db.batch();
+  for (const doc of snapshot.docs) {
+    const memberData = doc.data();
+    // Filter out the deleted guild from the member's guilds array
+    const remainingGuilds = (memberData.guilds || []).filter((g: any) => g.id !== guildId);
+    
+    const updateData: any = { guilds: remainingGuilds };
+    
+    // If member has no guilds left, mark as inactive
+    if (remainingGuilds.length === 0) {
+      updateData.status = "INACTIVE_LEFT";
+      updateData.isAllianceMember = false;
+      updateData.wvwMember = false;
     }
+    
+    batch.update(doc.ref, updateData);
   }
+  await batch.commit();
 
   revalidatePath("/admin");
   revalidatePath("/guilds");
@@ -448,9 +434,8 @@ export async function deleteGuild(guildId: string) {
 
 export async function updateGuildToken(guildId: string, leaderToken: string) {
   await requireGuildPermission(guildId);
-  await prisma.guild.update({
-    where: { id: guildId },
-    data: { leaderToken },
+  await db.collection("guilds").doc(guildId).update({
+    leaderToken: leaderToken
   });
   revalidatePath("/admin");
 }
@@ -471,9 +456,8 @@ export async function toggleGuildPublicRanks(guildId: string, status: boolean) {
     throw new Error("Keine Berechtigung, diese Einstellung zu ändern. Nur Admins oder Gildenleiter dieser Gilde dürfen dies tun.");
   }
 
-  await prisma.guild.update({
-    where: { id: guildId },
-    data: { publicRanks: status },
+  await db.collection("guilds").doc(guildId).update({
+    publicRanks: status
   });
   revalidatePath("/admin");
   revalidatePath("/members");
@@ -539,7 +523,8 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
   const preview = [];
   
   // Find Alliance Guild ("Frog") for rank comparison
-  const allianceGuild = await prisma.guild.findFirst({ where: { isAllianceGuild: true } });
+  const guildSnapshot = await db.collection("guilds").where("isAllianceGuild", "==", true).limit(1).get();
+  const allianceGuild = guildSnapshot.empty ? null : { id: guildSnapshot.docs[0].id, ...guildSnapshot.docs[0].data() } as any;
 
   for (const row of rows) {
     const findValue = (keys: string[], fieldKey?: string) => {
@@ -574,14 +559,9 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
       excelData.guildName = "";
     }
 
-    const existing = await prisma.member.findUnique({
-      where: { accountName },
-      include: { 
-        guilds: { 
-          include: { guild: true }
-        }
-      }
-    });
+    const memberSnapshot = await db.collection("members").where("accountName", "==", accountName).limit(1).get();
+    const existingDoc = memberSnapshot.empty ? null : memberSnapshot.docs[0];
+    const existing = existingDoc ? existingDoc.data() : null;
 
     let status: "NEW" | "UPDATE" | "CONFLICT" = "NEW";
     const conflicts: string[] = [];
@@ -608,7 +588,7 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
       };
 
       // 1. Rank (Alliance Guild specifically)
-      const allianceMembership = existing.guilds.find(mg => mg.guild.id === allianceGuild?.id);
+      const allianceMembership = (existing.guilds || []).find((mg: any) => mg.id === allianceGuild?.id);
       const oldRank = allianceMembership?.rank || "";
       
       if (excelData.rank && !isSame(oldRank, excelData.rank, true)) {
@@ -655,12 +635,13 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
       }
 
       // 4. JoinedAt
-      const oldJoinedAt = existing.joinedAt?.toISOString() || "";
+      const oldJoinedAt = existing.joinedAt?.toDate?.()?.toISOString() || existing.joinedAt || "";
       if (excelData.joinedAt) {
         const parsed = parseExcelDate(excelData.joinedAt);
         if (parsed) {
-          const hasJoinedAt = !!existing.joinedAt;
-          const sameDate = hasJoinedAt && existing.joinedAt!.getTime() === parsed.getTime();
+          const existingDate = existing.joinedAt?.toDate?.() || (existing.joinedAt ? new Date(existing.joinedAt) : null);
+          const hasJoinedAt = !!existingDate;
+          const sameDate = hasJoinedAt && existingDate.getTime() === parsed.getTime();
           if (!sameDate) {
             updates.push("Beitrittsdatum aktualisieren");
             diff.joinedAt = { old: oldJoinedAt, new: parsed.toISOString(), isChanged: true };
@@ -687,14 +668,14 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
       }
     }
 
-    preview.push({
+      preview.push({
       accountName,
       status,
       conflicts,
       updates,
       diff,
       excelData, // Keep original data for execution
-      existingId: existing?.id || null
+      existingId: existingDoc?.id || null
     });
   }
 
@@ -703,7 +684,8 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
 
 export async function executeMemberImport(selectedItems: any[], overwriteConflicts: boolean) {
   const session = await requireAllianceLeader();
-  const allianceGuild = await prisma.guild.findFirst({ where: { isAllianceGuild: true } });
+  const guildSnapshot = await db.collection("guilds").where("isAllianceGuild", "==", true).limit(1).get();
+  const allianceGuild = guildSnapshot.empty ? null : { id: guildSnapshot.docs[0].id, ...guildSnapshot.docs[0].data() } as any;
 
   const results = { created: 0, updated: 0, errors: 0 };
 
@@ -725,108 +707,119 @@ export async function executeMemberImport(selectedItems: any[], overwriteConflic
       }
 
       const isNew = !item.existingId;
+      const memberRef = isNew ? db.collection("members").doc() : db.collection("members").doc(item.existingId);
+      
+      const memberDoc = !isNew ? await memberRef.get() : null;
+      const existingGuilds = memberDoc?.exists ? (memberDoc.data()?.guilds || []) : [];
 
-      const member = await prisma.member.upsert({
-        where: { accountName: item.accountName },
-        update: updateData,
-        create: {
-          accountName: item.accountName,
-          comment: data.comment || null,
-          customDiscordName: data.discordName || null,
-          joinedAt: parseExcelDate(data.joinedAt) || null,
-          status: "ACTIVE",
-          isAllianceMember: true
+      const memberData: any = {
+        accountName: item.accountName,
+        status: "ACTIVE",
+        isAllianceMember: true,
+        updatedAt: new Date()
+      };
+
+      if (diff.comment?.isChanged) memberData.comment = data.comment || null;
+      else if (!isNew) memberData.comment = memberDoc?.data()?.comment || null;
+
+      if (diff.discordName?.isChanged) memberData.customDiscordName = data.discordName || null;
+      else if (!isNew) memberData.customDiscordName = memberDoc?.data()?.customDiscordName || null;
+      
+      if (diff.joinedAt?.isChanged) {
+        const parsedDate = parseExcelDate(data.joinedAt);
+        if (parsedDate) memberData.joinedAt = parsedDate;
+      } else if (!isNew) {
+        memberData.joinedAt = memberDoc?.data()?.joinedAt || null;
+      }
+
+      // Handle Guilds denormalization
+      let updatedGuilds = [...existingGuilds];
+
+      // Alliance Guild update
+      if (allianceGuild && (isNew || diff.rank?.isChanged)) {
+        const allianceIdx = updatedGuilds.findIndex(g => g.id === allianceGuild.id);
+        const allianceEntry = {
+          id: allianceGuild.id,
+          name: allianceGuild.name,
+          tag: allianceGuild.tag,
+          rank: data.rank || "Member",
+          joinedAt: memberData.joinedAt || new Date()
+        };
+
+        if (allianceIdx >= 0) updatedGuilds[allianceIdx] = allianceEntry;
+        else updatedGuilds.push(allianceEntry);
+      }
+
+      // Secondary Guild update
+      if (data.guildName && data.guildName !== allianceGuild?.name && data.guildName !== allianceGuild?.tag) {
+        const cleanGuildName = data.guildName.replace(/^\[/, "").replace(/\]$/, "");
+        
+        const secSnapshot = await db.collection("guilds")
+          .where("name", "in", [data.guildName, cleanGuildName])
+          .get();
+        
+        let secondaryGuild = secSnapshot.empty ? null : { id: secSnapshot.docs[0].id, ...secSnapshot.docs[0].data() } as any;
+        
+        if (!secondaryGuild) {
+            const secTagSnapshot = await db.collection("guilds")
+                .where("tag", "in", [data.guildName, cleanGuildName])
+                .get();
+            secondaryGuild = secTagSnapshot.empty ? null : { id: secTagSnapshot.docs[0].id, ...secTagSnapshot.docs[0].data() } as any;
         }
-      });
+
+        if (secondaryGuild) {
+          const secIdx = updatedGuilds.findIndex(g => g.id === secondaryGuild.id);
+          if (secIdx === -1) {
+            updatedGuilds.push({
+              id: secondaryGuild.id,
+              name: secondaryGuild.name,
+              tag: secondaryGuild.tag,
+              rank: "Member",
+              joinedAt: new Date()
+            });
+          }
+        }
+      }
+
+      memberData.guilds = updatedGuilds;
+      await memberRef.set(memberData, { merge: true });
 
       if (isNew) results.created++;
       else results.updated++;
 
-      // 2. Alliance Guild Membership
-      // Only upsert if it's a new member OR the rank has changed
-      if (allianceGuild && (isNew || diff.rank?.isChanged)) {
-        await prisma.memberGuild.upsert({
-          where: {
-            memberId_guildId: {
-              memberId: member.id,
-              guildId: allianceGuild.id
-            }
-          },
-          update: { rank: data.rank || "Member" },
-          create: {
-            memberId: member.id,
-            guildId: allianceGuild.id,
-            rank: data.rank || "Member"
-          }
-        });
-      }
-
-      // 3. Secondary Guild Membership (only if provided)
-      if (data.guildName && data.guildName !== allianceGuild?.name && data.guildName !== allianceGuild?.tag) {
-        // Strip brackets [GoP] -> GoP
-        const cleanGuildName = data.guildName.replace(/^\[/, "").replace(/\]$/, "");
-        
-        const secondaryGuild = await prisma.guild.findFirst({
-          where: {
-            OR: [
-              { name: { equals: data.guildName, mode: 'insensitive' } },
-              { tag: { equals: data.guildName, mode: 'insensitive' } },
-              { name: { equals: cleanGuildName, mode: 'insensitive' } },
-              { tag: { equals: cleanGuildName, mode: 'insensitive' } }
-            ]
-          }
-        });
-
-        if (secondaryGuild) {
-          await prisma.memberGuild.upsert({
-            where: {
-              memberId_guildId: {
-                memberId: member.id,
-                guildId: secondaryGuild.id
-              }
-            },
-            update: {}, 
-            create: {
-              memberId: member.id,
-              guildId: secondaryGuild.id,
-              rank: "Member"
-            }
-          });
-        }
-      }
-
       // 4. Detailed History logging: ONLY for changes
       if (isNew) {
-        await prisma.memberHistory.create({
-          data: { memberId: member.id, eventType: "JOINED", newValue: "Via Excel Import" }
+        await memberRef.collection("history").add({
+          type: "IMPORT",
+          description: "Mitglied via Excel importiert",
+          timestamp: new Date()
         });
       }
 
       if (diff.rank?.isChanged) {
-        await prisma.memberHistory.create({
-          data: { 
-            memberId: member.id, 
-            eventType: "RANK_CHANGE", 
-            newValue: data.rank,
-            oldValue: diff.rank.old || undefined 
-          }
+        await memberRef.collection("history").add({
+          type: "RANK_CHANGE",
+          newValue: data.rank,
+          oldValue: diff.rank.old || null,
+          timestamp: new Date()
         });
       }
 
       if (diff.discordName?.isChanged) {
-        await prisma.memberHistory.create({
-          data: { memberId: member.id, eventType: "DISCORD_NAME_CHANGED", newValue: data.discordName, oldValue: diff.discordName.old || undefined }
+        await memberRef.collection("history").add({
+          type: "DISCORD_NAME_CHANGED",
+          newValue: data.discordName,
+          oldValue: diff.discordName.old || null,
+          timestamp: new Date()
         });
       }
 
       if (diff.comment?.isChanged) {
-        await prisma.memberHistory.create({
-          data: { 
-            memberId: member.id, 
-            eventType: diff.comment.old ? "COMMENT_CHANGED" : "COMMENT_ADDED", 
-            newValue: data.comment,
-            oldValue: diff.comment.old || undefined
-          }
+        await memberRef.collection("history").add({
+          type: diff.comment.old ? "COMMENT_CHANGED" : "COMMENT_ADDED",
+          newValue: data.comment,
+          oldValue: diff.comment.old || null,
+          timestamp: new Date()
         });
       }
 

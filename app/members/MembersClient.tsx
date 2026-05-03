@@ -3,8 +3,8 @@ import Link from "next/link";
 import React, { useState, useMemo } from "react";
 import "./Members.css";
 
-// Basic type matching prisma query response
-// Basic type matching prisma query response
+// Basic type matching Firestore query response
+// Basic type matching Firestore query response
 type MemberGuild = {
   guild: { name: string, tag: string, isAllianceGuild: boolean };
   rank: string;
@@ -48,8 +48,8 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
       filtered = filtered.filter(m => 
         m.accountName.toLowerCase().includes(s) || 
         m.guilds.some(mg => 
-          mg.guild.name.toLowerCase().includes(s) || 
-          mg.guild.tag.toLowerCase().includes(s) || 
+          mg.guild?.name?.toLowerCase().includes(s) || 
+          mg.guild?.tag?.toLowerCase().includes(s) || 
           mg.rank.toLowerCase().includes(s)
         ) ||
         (m.manualRole && m.manualRole.toLowerCase().includes(s))
@@ -132,9 +132,9 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.85rem' }}>
                       {m.guilds?.map((mg, idx) => (
-                        <div key={idx} style={{ opacity: mg.guild.isAllianceGuild ? 1 : 0.8 }}>
-                          <span style={{ fontWeight: mg.guild.isAllianceGuild ? 'bold' : 'normal' }}>
-                            [{mg.guild.tag}]
+                        <div key={idx} style={{ opacity: mg.guild?.isAllianceGuild ? 1 : 0.8 }}>
+                          <span style={{ fontWeight: mg.guild?.isAllianceGuild ? 'bold' : 'normal' }}>
+                            [{mg.guild?.tag || '???'}]
                           </span>
                           <span style={{ marginLeft: '6px', opacity: 0.7 }}>{mg.rank}</span>
                         </div>

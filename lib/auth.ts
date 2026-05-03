@@ -2,7 +2,7 @@ import { NextAuthOptions } from "next-auth";
 import DiscordProvider from "next-auth/providers/discord";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/firebase-admin";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -22,14 +22,20 @@ export const authOptions: NextAuthOptions = {
       },
       async authorize(credentials) {
         if (!credentials?.email || !credentials?.password) return null;
-        const user = await prisma.user.findUnique({ where: { email: credentials.email } });
+        const userSnapshot = await db.collection("users").where("email", "==", credentials.email).limit(1).get();
+        
+        if (userSnapshot.empty) return null;
+        
+        const userDoc = userSnapshot.docs[0];
+        const user = userDoc.data();
+        
         // In local development we compare directly; in production use bcrypt.compare
         if (user && user.passwordHash === credentials.password) {
           return { 
-            id: user.id, 
+            id: userDoc.id, 
             email: user.email, 
             name: user.name,
-            role: user.role // Added role to satisfy User interface
+            role: user.role 
           };
         }
         return null;
@@ -42,25 +48,23 @@ export const authOptions: NextAuthOptions = {
         const email = user.email || (profile as any).email;
         if (!email) return false;
 
-        let userInDb = await prisma.user.findUnique({ where: { email } });
-        if (!userInDb) {
-          userInDb = await prisma.user.create({
-            data: {
-              email,
-              name: user.name || (profile as any).name || (profile as any).username,
-              image: user.image || (profile as any).image_url || (profile as any).picture,
-              discordId: account.provider === "discord" ? user.id : null,
-              role: "WEB_MEMBER"
-            }
+        const userSnapshot = await db.collection("users").where("email", "==", email).limit(1).get();
+        
+        if (userSnapshot.empty) {
+          await db.collection("users").add({
+            email,
+            name: user.name || (profile as any).name || (profile as any).username,
+            image: user.image || (profile as any).image_url || (profile as any).picture,
+            discordId: account.provider === "discord" ? user.id : null,
+            role: "WEB_MEMBER",
+            createdAt: new Date()
           });
         } else {
           // Update existing user with OAuth info if needed
-          await prisma.user.update({
-            where: { id: userInDb.id },
-            data: {
-              discordId: account.provider === "discord" ? user.id : userInDb.discordId,
-              lastLoginAt: new Date(),
-            }
+          const userDoc = userSnapshot.docs[0];
+          await userDoc.ref.update({
+            discordId: account.provider === "discord" ? user.id : (userDoc.data().discordId || null),
+            lastLoginAt: new Date(),
           });
         }
       }
@@ -69,36 +73,39 @@ export const authOptions: NextAuthOptions = {
     async jwt({ token, user, trigger }: any) {
       if (user || token.email) {
         const email = user?.email || token.email;
-        const userInDb = await prisma.user.findUnique({ 
-          where: { email },
-          include: { 
-            member: {
-              include: { guilds: { include: { guild: true } } }
-            },
-            managedGuilds: { select: { id: true } }
-          }
-        });
+        const userSnapshot = await db.collection("users").where("email", "==", email).limit(1).get();
 
-        if (!userInDb) {
+        if (userSnapshot.empty) {
           if (token.email) return { deleted: true };
           return token;
         }
 
-        token.id = userInDb.id;
+        const userDoc = userSnapshot.docs[0];
+        const userInDb = userDoc.data();
+
+        token.id = userDoc.id;
         token.role = userInDb.role;
 
+        // Fetch member data for guild info if linked
+        let allMemberGuilds: any[] = [];
+        if (userInDb.memberId) {
+          const memberDoc = await db.collection("members").doc(userInDb.memberId).get();
+          if (memberDoc.exists) {
+            allMemberGuilds = memberDoc.data()?.guilds || [];
+          }
+        }
+
         // Determine "Primary" Guild ID (Alliance preferred)
-        const allMemberGuilds = userInDb.member?.guilds || [];
-        const allianceMembership = allMemberGuilds.find(mg => mg.guild.isAllianceGuild);
-        token.guildId = allianceMembership?.guildId || allMemberGuilds[0]?.guildId || null;
+        const allianceMembership = allMemberGuilds.find(mg => mg.isAllianceGuild);
+        token.guildId = allianceMembership?.id || allMemberGuilds[0]?.id || null;
         
-        let managedIds = userInDb.managedGuilds.map(g => g.id);
+        let managedIds = userInDb.managedGuildIds || [];
         // If they have no explicit managed guilds, populate from their own memberships
         if (managedIds.length === 0) {
-          managedIds = allMemberGuilds.map(mg => mg.guildId);
+          managedIds = allMemberGuilds.map(mg => mg.id);
         }
         token.subGuildIds = managedIds;
-        token.memberGuildIds = allMemberGuilds.map(mg => mg.guildId);
+        token.memberGuildIds = allMemberGuilds.map(mg => mg.id);
       }
 
       return token;

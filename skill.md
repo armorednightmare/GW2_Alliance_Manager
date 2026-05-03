@@ -28,11 +28,14 @@ Dieses Dokument dient als Gedächtnisstütze für den KI-Agenten, um Kontext, To
 - **LÖSUNG**: Kommandos müssen zwingend mit **Semikolon `;`** getrennt werden. 
   *(Beispiel: `git add . ; git commit -m "update" ; git push`)*.
 
-## 5. Zielgruppe & Design-Ästhetik
+## 5. Git-Workflow & Push-Regel
+- **KEIN AUTOMATISCHER PUSH**: Der Agent darf niemals ohne explizite Aufforderung des Users einen `git push` ausführen. Änderungen werden standardmäßig nur lokal committet, es sei denn, der User verlangt ausdrücklich den Push.
+
+## 6. Zielgruppe & Design-Ästhetik
 - Das Design muss stets modern und "wow" wirken, da es für eine Gamer-Community entwickelt wird.
 - Leere Zustände (Empty States), Lade-Layouts und Fehler-Meldungen müssen ins dunkle Glass-Design (Transparenz, Glow/Text-Shadows) integriert werden.
 
-## 6. Historische Fallstricke & Bekannte Fehlerquellen
+## 7. Historische Fallstricke & Bekannte Fehlerquellen
 - **Prisma Build Error in Docker (Railway Deployment):** In der Vergangenheit gab es einen `PrismaConfigEnvError` während des Builds, weil die `DATABASE_URL` im reinen Build-Kontext fehlte. Bei Änderungen an der Dockerfile oder dem Deployment-Prozess muss sichergestellt sein, dass Prisma beim Aufruf von `npx prisma generate` Zugriff auf nötige (Dummy-)Envs hat.
 - **Komplexe Berechtigungs-Logik (Sichtbarkeit):** Die Privacy-Regeln des Projekts sind strikt. Ein Gildenleiter darf im Profil und Verlauf **nur** Ränge, Kommentare und spezifische Historien-Einträge von Spielern sehen, die seine *eigene(n)* Gilde(n) betreffen. Private Daten anderer Subgilden bleiben verborgen. Ausnahme: Fraktionsweite Events (z.B. "verlässt die Allianz") dürfen eingesehen werden.
 - **Der Excel-Mitglieder-Import (UI-State & Persistenz):** Beim Hochladen von Excel-Listen (Spalten-Mapping) neigt die UI bei unsauberem Code zu "Resets" beim ersten Upload, oder Daten werden nicht korrekt an die DB weitergeleitet. Änderungen im `ImportManagementClient` müssen bezüglich React-State-Management (`useState` Hooks) immer mit Vorsicht behandelt werden.

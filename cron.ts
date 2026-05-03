@@ -1,4 +1,4 @@
-import { prisma } from "./lib/prisma";
+import { db } from "./lib/firebase-admin";
 import { syncAllGuildRosters } from "./lib/gw2api";
 import { runDatabaseBackup } from "./lib/backup";
 import cron, { ScheduledTask } from "node-cron";
@@ -44,12 +44,13 @@ async function runCron() {
 
   // Init backup schedule
   try {
-    const settings = await prisma.systemSettings.findFirst();
+    const settingsSnapshot = await db.collection("settings").doc("system").get();
+    const settings = settingsSnapshot.exists ? settingsSnapshot.data() : null;
     if (settings?.backupCronSchedule) {
       currentBackupSchedule = settings.backupCronSchedule;
     }
   } catch (e) {
-    console.log("DB might not be ready yet for settings");
+    console.log("Firestore might not be ready yet for settings");
   }
   
   applyBackupSchedule(currentBackupSchedule);
@@ -58,7 +59,8 @@ async function runCron() {
     let intervalMinutes = 60; // Default
 
     try {
-      const settings = await prisma.systemSettings.findFirst();
+      const settingsSnapshot = await db.collection("settings").doc("system").get();
+      const settings = settingsSnapshot.exists ? settingsSnapshot.data() : null;
       if (settings?.apiSyncInterval) {
         intervalMinutes = settings.apiSyncInterval;
       }
@@ -68,7 +70,7 @@ async function runCron() {
         applyBackupSchedule(currentBackupSchedule);
       }
     } catch (e: any) {
-      console.error("Cron Database lookup failed:", e.message);
+      console.error("Cron Firestore lookup failed:", e.message);
     }
 
     // Convert minutes to milliseconds
@@ -91,7 +93,6 @@ async function runCron() {
 // Ensure Node gracefully exits
 process.on('SIGINT', async () => {
   console.log("Cron shutting down...");
-  await prisma.$disconnect();
   process.exit(0);
 });
 

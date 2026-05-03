@@ -1,9 +1,11 @@
 export const dynamic = 'force-dynamic';
-import { prisma } from "@/lib/prisma";
+import { db } from "@/lib/firebase-admin";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import ProfileClient from "./ProfileClient";
+import { redirect } from "next/navigation";
 import DateDisplay from "../components/DateDisplay";
+import { sanitizeData } from "@/lib/utils";
 import "../members/Members.css";
 
 interface UserSession {
@@ -19,41 +21,47 @@ interface UserSession {
 
 export default async function ProfilePage() {
   const session = (await getServerSession(authOptions)) as UserSession | null;
+  if (!session) redirect("/login");
 
+  const userDoc = await db.collection("users").doc(session.user.id).get();
+  if (!userDoc.exists) return <div>Nutzer nicht gefunden.</div>;
+  const user = { id: userDoc.id, ...userDoc.data() } as any;
 
-  if (!session?.user?.id) {
-    return <div>Bitte einloggen.</div>;
+  let member = null;
+  if (user.memberId) {
+    const memberDoc = await db.collection("members").doc(user.memberId).get();
+    if (memberDoc.exists) {
+      member = { id: memberDoc.id, ...memberDoc.data() } as any;
+      
+      // Fetch history from sub-collection
+      const historySnapshot = await memberDoc.ref.collection("history")
+        .orderBy("timestamp", "desc")
+        .limit(10)
+        .get();
+      
+      member.history = historySnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          ...data,
+          timestamp: data.timestamp?.toDate ? data.timestamp.toDate().toISOString() : data.timestamp,
+          createdAt: data.timestamp?.toDate ? data.timestamp.toDate().toISOString() : new Date().toISOString()
+        };
+      });
+    }
   }
 
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    include: {
-      member: {
-        include: {
-          guilds: {
-            include: { guild: true }
-          },
-          history: {
-            orderBy: { createdAt: 'desc' },
-            take: 10
-          }
-        }
-      }
-    }
-  });
-
-  if (!user) return <div>Nutzer nicht gefunden.</div>;
-
-  const member = user.member;
+  const sanitizedMember = sanitizeData(member);
+  const sanitizedUser = sanitizeData(user);
 
   return (
     <div className="profile-page-wrapper">
       <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)" }}>Mein Profil</h1>
       <p style={{ opacity: 0.8, marginBottom: '2rem' }}>
-        Willkommen zurück, {user.name || user.email}. Hier sehen Sie Ihre verknüpften Alliance-Daten.
+        Willkommen zurück, {sanitizedUser.name || sanitizedUser.email}. Hier sehen Sie Ihre verknüpften Alliance-Daten.
       </p>
 
-      {member ? (
+      {sanitizedMember ? (
         <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
           {/* Member Details Card */}
           <div style={{ flex: '1 1 400px', backgroundColor: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
@@ -61,38 +69,38 @@ export default async function ProfilePage() {
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
               <div>
                 <label style={{ fontSize: '0.8rem', opacity: 0.6 }}>Account Name</label>
-                <div style={{ fontWeight: 'bold' }}>{member.accountName}</div>
+                <div style={{ fontWeight: 'bold' }}>{sanitizedMember.accountName}</div>
               </div>
               <div>
                 <label style={{ fontSize: '0.8rem', opacity: 0.6 }}>Status</label>
                 <div>
-                  <span className={`status-badge status-${member.status.toLowerCase()}`}>
-                    {member.status}
+                  <span className={`status-badge status-${sanitizedMember.status.toLowerCase()}`}>
+                    {sanitizedMember.status}
                   </span>
                 </div>
               </div>
               <div style={{ gridColumn: 'span 2' }}>
                 <label style={{ fontSize: '0.8rem', opacity: 0.6 }}>Kampfgilde aktiv?</label>
-                <div>{member.wvwMember ? '✅ Ja' : '❌ Nein'}</div>
+                <div>{sanitizedMember.wvwMember ? '✅ Ja' : '❌ Nein'}</div>
               </div>
               <div style={{ gridColumn: 'span 2' }}>
                 <label style={{ fontSize: '0.8rem', opacity: 0.6 }}>Allianz Mitglied?</label>
-                <div>{member.isAllianceMember ? '✅ Ja' : '❌ Nein'}</div>
+                <div>{sanitizedMember.isAllianceMember ? '✅ Ja' : '❌ Nein'}</div>
               </div>
-              {member.invitedBy && (
+              {sanitizedMember.invitedBy && (
                 <div style={{ gridColumn: 'span 2' }}>
                   <label style={{ fontSize: '0.8rem', opacity: 0.6 }}>Eingeladen von</label>
-                  <div>{member.invitedBy}</div>
+                  <div>{sanitizedMember.invitedBy}</div>
                 </div>
               )}
             </div>
 
             <h3 style={{ marginTop: '1.5rem', fontSize: '1rem', opacity: 0.9 }}>Gilden & Ränge</h3>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: '0.5rem' }}>
-              {member.guilds.map((mg) => (
+              {sanitizedMember.guilds.map((mg: any) => (
                 <div key={mg.id} style={{ background: 'rgba(255,255,255,0.03)', padding: '0.6rem', borderRadius: '4px' }}>
-                  <strong style={{ color: mg.guild.isAllianceGuild ? 'var(--accent-color)' : 'inherit' }}>
-                    {mg.guild.name} [{mg.guild.tag}]
+                  <strong style={{ color: mg.isAllianceGuild ? 'var(--accent-color)' : 'inherit' }}>
+                    {mg.name} [{mg.tag}]
                   </strong>
                   <div style={{ fontSize: '0.85rem', opacity: 0.7 }}>Rang: {mg.rank}</div>
                 </div>
@@ -100,10 +108,10 @@ export default async function ProfilePage() {
               {member.guilds.length === 0 && <p style={{ opacity: 0.5, fontSize: '0.9rem' }}>Keinen Gilden zugeordnet.</p>}
             </div>
             
-            {member.manualRole && (
+            {sanitizedMember.manualRole && (
               <div style={{ marginTop: '1.5rem' }}>
                 <label style={{ fontSize: '0.8rem', opacity: 0.6 }}>Zugewiesene Rolle</label>
-                <div style={{ marginTop: '0.3rem' }}><span className="badge">{member.manualRole}</span></div>
+                <div style={{ marginTop: '0.3rem' }}><span className="badge">{sanitizedMember.manualRole}</span></div>
               </div>
             )}
             
@@ -114,19 +122,19 @@ export default async function ProfilePage() {
           <div style={{ flex: '1 1 300px', backgroundColor: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
             <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>Letzte Aktivitäten</h3>
             <ul style={{ listStyle: 'none', padding: 0, marginTop: '1rem' }}>
-              {member.history
-                .filter((item: any) => !["COMMENT_ADDED", "COMMENT_CHANGED"].includes(item.eventType))
+              {sanitizedMember.history
+                .filter((item: any) => !["COMMENT_ADDED", "COMMENT_CHANGED"].includes(item.eventType || item.type))
                 .map((item: any) => (
                   <li key={item.id} style={{ marginBottom: '1rem', borderLeft: '2px solid var(--accent-color)', paddingLeft: '1rem', fontSize: '0.9rem' }}>
                     <DateDisplay 
-                      date={item.createdAt} 
+                      date={item.timestamp || item.createdAt} 
                       style={{ fontSize: '0.75rem', opacity: 0.6, display: 'block' }} 
                     />
-                    <strong>{item.eventType.replace(/_/g, ' ')}</strong>
+                    <strong>{(item.eventType || item.type || "").replace(/_/g, ' ')}</strong>
                     {item.newValue && <div style={{ opacity: 0.8, fontSize: '0.85rem' }}>➔ {item.newValue}</div>}
                   </li>
               ))}
-              {member.history.length === 0 && <p style={{ opacity: 0.5 }}>Noch keine Aktivitäten aufgezeichnet.</p>}
+              {sanitizedMember.history.length === 0 && <p style={{ opacity: 0.5 }}>Noch keine Aktivitäten aufgezeichnet.</p>}
             </ul>
           </div>
         </div>
@@ -137,7 +145,7 @@ export default async function ProfilePage() {
       )}
 
       {/* Account Settings / Link Management */}
-      <ProfileClient isLinked={!!member} />
+      <ProfileClient isLinked={!!sanitizedMember} />
     </div>
   );
 }
