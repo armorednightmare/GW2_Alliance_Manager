@@ -17,18 +17,28 @@ export const authOptions: NextAuthOptions = {
     CredentialsProvider({
       name: "Local Account",
       credentials: {
-        email: { label: "Email", type: "text" },
+        username: { label: "Username", type: "text" },
         password: { label: "Password", type: "password" }
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
-        const userSnapshot = await db.collection("users").where("email", "==", credentials.email).limit(1).get();
-        
-        if (userSnapshot.empty) return null;
-        
-        const userDoc = userSnapshot.docs[0];
+        if (!credentials?.username || !credentials?.password) return null;
+
+        // Search by name OR email in Firestore
+        let userDoc: FirebaseFirestore.QueryDocumentSnapshot | null = null;
+
+        const byName = await db.collection("users").where("name", "==", credentials.username).limit(1).get();
+        if (!byName.empty) {
+          userDoc = byName.docs[0];
+        } else {
+          const byEmail = await db.collection("users").where("email", "==", credentials.username).limit(1).get();
+          if (!byEmail.empty) {
+            userDoc = byEmail.docs[0];
+          }
+        }
+
+        if (!userDoc) return null;
         const user = userDoc.data();
-        
+
         // In local development we compare directly; in production use bcrypt.compare
         if (user && user.passwordHash === credentials.password) {
           return { 
@@ -71,42 +81,54 @@ export const authOptions: NextAuthOptions = {
       return true;
     },
     async jwt({ token, user, trigger }: any) {
-      if (user || token.email) {
-        const email = user?.email || token.email;
-        const userSnapshot = await db.collection("users").where("email", "==", email).limit(1).get();
+      let userDoc: FirebaseFirestore.QueryDocumentSnapshot | FirebaseFirestore.DocumentSnapshot | null = null;
 
-        if (userSnapshot.empty) {
-          if (token.email) return { deleted: true };
-          return token;
+      if (token.id) {
+        // Returning user — look up by stored Firestore doc ID
+        const doc = await db.collection("users").doc(token.id as string).get();
+        if (doc.exists) userDoc = doc;
+      } else if (user) {
+        // First sign-in — try email first (OAuth), then by id (credentials)
+        if (user.email) {
+          const snap = await db.collection("users").where("email", "==", user.email).limit(1).get();
+          if (!snap.empty) userDoc = snap.docs[0];
         }
-
-        const userDoc = userSnapshot.docs[0];
-        const userInDb = userDoc.data();
-
-        token.id = userDoc.id;
-        token.role = userInDb.role;
-
-        // Fetch member data for guild info if linked
-        let allMemberGuilds: any[] = [];
-        if (userInDb.memberId) {
-          const memberDoc = await db.collection("members").doc(userInDb.memberId).get();
-          if (memberDoc.exists) {
-            allMemberGuilds = memberDoc.data()?.guilds || [];
-          }
+        if (!userDoc && user.id) {
+          const doc = await db.collection("users").doc(user.id).get();
+          if (doc.exists) userDoc = doc;
         }
-
-        // Determine "Primary" Guild ID (Alliance preferred)
-        const allianceMembership = allMemberGuilds.find(mg => mg.isAllianceGuild);
-        token.guildId = allianceMembership?.id || allMemberGuilds[0]?.id || null;
-        
-        let managedIds = userInDb.managedGuildIds || [];
-        // If they have no explicit managed guilds, populate from their own memberships
-        if (managedIds.length === 0) {
-          managedIds = allMemberGuilds.map(mg => mg.id);
-        }
-        token.subGuildIds = managedIds;
-        token.memberGuildIds = allMemberGuilds.map(mg => mg.id);
       }
+
+      if (!userDoc || !userDoc.exists) {
+        if (token.id) return { deleted: true };
+        return token;
+      }
+
+      const userInDb = userDoc.data()!;
+
+      token.id = userDoc.id;
+      token.role = userInDb.role;
+
+      // Fetch member data for guild info if linked
+      let allMemberGuilds: any[] = [];
+      if (userInDb.memberId) {
+        const memberDoc = await db.collection("members").doc(userInDb.memberId).get();
+        if (memberDoc.exists) {
+          allMemberGuilds = memberDoc.data()?.guilds || [];
+        }
+      }
+
+      // Determine "Primary" Guild ID (Alliance preferred)
+      const allianceMembership = allMemberGuilds.find(mg => mg.isAllianceGuild);
+      token.guildId = allianceMembership?.id || allMemberGuilds[0]?.id || null;
+      
+      let managedIds = userInDb.managedGuildIds || [];
+      // If they have no explicit managed guilds, populate from their own memberships
+      if (managedIds.length === 0) {
+        managedIds = allMemberGuilds.map(mg => mg.id);
+      }
+      token.subGuildIds = managedIds;
+      token.memberGuildIds = allMemberGuilds.map(mg => mg.id);
 
       return token;
     },

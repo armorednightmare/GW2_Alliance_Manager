@@ -10,7 +10,7 @@ interface LoginPageProps {
 }
 
 export default function LoginClient({ discordConfigured, googleConfigured }: LoginPageProps) {
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -19,10 +19,10 @@ export default function LoginClient({ discordConfigured, googleConfigured }: Log
     e.preventDefault();
     setLoading(true);
     setError("");
-    const result = await signIn("credentials", { email, password, callbackUrl: "/", redirect: false });
+    const result = await signIn("credentials", { username, password, callbackUrl: "/", redirect: false });
     setLoading(false);
     if (result?.error) {
-      setError("E-Mail oder Passwort falsch.");
+      setError("Benutzername/E-Mail oder Passwort falsch.");
     } else {
       window.location.href = "/";
     }
@@ -37,10 +37,10 @@ export default function LoginClient({ discordConfigured, googleConfigured }: Log
 
         <form onSubmit={handleCredentialsLogin} className="login-form">
           <input
-            type="email"
-            placeholder="E-Mail"
-            value={email}
-            onChange={(e: any) => setEmail(e.target.value)}
+            type="text"
+            placeholder="Benutzername / E-Mail"
+            value={username}
+            onChange={(e: any) => setUsername(e.target.value)}
             required
           />
           <input
