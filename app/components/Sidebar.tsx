@@ -29,7 +29,7 @@ export default async function Sidebar(): Promise<JSX.Element> {
         )}
         {session && (
           <Link href="/profile" className="footer-link">
-            <span className="icon">👤 Mein Profil (API Key)</span>
+            <span className="icon">👤 Mein Profil</span>
           </Link>
         )}
       </div>

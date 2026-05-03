@@ -50,8 +50,21 @@ export default async function ProfilePage() {
     <div className="profile-page-wrapper">
       <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)" }}>Mein Profil</h1>
       <p style={{ opacity: 0.8, marginBottom: '2rem' }}>
-        Willkommen zurück, {user.name || user.email}. Hier sehen Sie Ihre verknüpften Alliance-Daten.
+        Willkommen zurück, <strong>{user.name || user.email}</strong>. Hier sehen Sie Ihre verknüpften Alliance-Daten.
       </p>
+
+      <div style={{ background: 'rgba(0,0,0,0.2)', padding: '1rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)', marginBottom: '2rem', maxWidth: '400px' }}>
+        <label style={{ fontSize: '0.8rem', opacity: 0.6, display: 'block', marginBottom: '0.4rem' }}>Verknüpfter Web-Account</label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+          {user.discordId ? (
+            <span style={{ color: '#5865F2', fontWeight: 'bold' }}>🎮 Discord</span>
+          ) : !user.passwordHash ? (
+            <span style={{ color: '#DB4437', fontWeight: 'bold' }}>📧 Google</span>
+          ) : (
+            <span style={{ fontWeight: 'bold' }}>👤 Manueller Account {user.email && <span style={{ opacity: 0.7, fontWeight: 'normal' }}>({user.email})</span>}</span>
+          )}
+        </div>
+      </div>
 
       {member ? (
         <div style={{ display: 'flex', gap: '2rem', flexWrap: 'wrap' }}>
@@ -59,6 +72,7 @@ export default async function ProfilePage() {
           <div style={{ flex: '1 1 400px', backgroundColor: 'rgba(0,0,0,0.2)', padding: '1.5rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.05)' }}>
             <h3 style={{ borderBottom: '1px solid rgba(255,255,255,0.1)', paddingBottom: '0.5rem' }}>GW2 Charakter-Daten</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginTop: '1rem' }}>
+
               <div>
                 <label style={{ fontSize: '0.8rem', opacity: 0.6 }}>Account Name</label>
                 <div style={{ fontWeight: 'bold' }}>{member.accountName}</div>
@@ -137,7 +151,7 @@ export default async function ProfilePage() {
       )}
 
       {/* Account Settings / Link Management */}
-      <ProfileClient isLinked={!!member} />
+      <ProfileClient isLinked={!!member} userRole={user.role} />
     </div>
   );
 }

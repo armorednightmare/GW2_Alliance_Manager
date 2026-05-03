@@ -45,3 +45,41 @@ export async function unlinkAccount() {
     data: { memberId: null }
   });
 }
+
+export async function changePassword(currentUsername: string, currentPassword: string, newPassword: string) {
+  const session = (await getServerSession(authOptions)) as { user: AuthUser } | null;
+  if (!session?.user?.id) return { success: false, error: "Not logged in" };
+
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  
+  if (!user || user.name !== currentUsername || user.passwordHash !== currentPassword) {
+    return { success: false, error: "Aktueller Benutzername oder Passwort ist falsch." };
+  }
+
+  if (newPassword.length < 4) {
+    return { success: false, error: "Das neue Passwort muss mindestens 4 Zeichen lang sein." };
+  }
+
+  await prisma.user.update({
+    where: { id: session.user.id },
+    data: { passwordHash: newPassword }
+  });
+
+  return { success: true };
+}
+
+export async function deleteMyAccount() {
+  const session = (await getServerSession(authOptions)) as { user: AuthUser } | null;
+  if (!session?.user?.id) return { success: false, error: "Not logged in" };
+
+  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  if (user?.role === "ADMIN") {
+    return { success: false, error: "Administratoren können sich nicht selbst löschen." };
+  }
+
+  await prisma.user.delete({
+    where: { id: session.user.id }
+  });
+
+  return { success: true };
+}
