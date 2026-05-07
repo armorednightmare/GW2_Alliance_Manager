@@ -19,7 +19,7 @@ export async function fetchHistoryLogs(page: number, limit: number, search: stri
   // For now, we fetch the latest 200 items and search/paginate within them.
   const snapshot = await db.collectionGroup("history").orderBy("timestamp", "desc").limit(200).get();
   
-  const historyRaw = await Promise.all(snapshot.docs.map(async (doc) => {
+  const historyRaw: any[] = await Promise.all(snapshot.docs.map(async (doc) => {
     const data = doc.data();
     const memberDoc = await doc.ref.parent.parent?.get();
     const memberData = memberDoc?.exists ? { id: memberDoc.id, ...memberDoc.data() } as any : null;

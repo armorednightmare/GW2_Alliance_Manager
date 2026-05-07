@@ -48,7 +48,8 @@ export async function changePassword(currentUsername: string, currentPassword: s
   const session = (await getServerSession(authOptions)) as { user: AuthUser } | null;
   if (!session?.user?.id) return { success: false, error: "Not logged in" };
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  const userDoc = await db.collection("users").doc(session.user.id).get();
+  const user = userDoc.data();
   
   if (!user || user.name !== currentUsername || user.passwordHash !== currentPassword) {
     return { success: false, error: "Aktueller Benutzername oder Passwort ist falsch." };
@@ -58,9 +59,8 @@ export async function changePassword(currentUsername: string, currentPassword: s
     return { success: false, error: "Das neue Passwort muss mindestens 4 Zeichen lang sein." };
   }
 
-  await prisma.user.update({
-    where: { id: session.user.id },
-    data: { passwordHash: newPassword }
+  await db.collection("users").doc(session.user.id).update({
+    passwordHash: newPassword
   });
 
   return { success: true };
@@ -70,14 +70,13 @@ export async function deleteMyAccount() {
   const session = (await getServerSession(authOptions)) as { user: AuthUser } | null;
   if (!session?.user?.id) return { success: false, error: "Not logged in" };
 
-  const user = await prisma.user.findUnique({ where: { id: session.user.id } });
+  const userDoc = await db.collection("users").doc(session.user.id).get();
+  const user = userDoc.data();
   if (user?.role === "ADMIN") {
     return { success: false, error: "Administratoren können sich nicht selbst löschen." };
   }
 
-  await prisma.user.delete({
-    where: { id: session.user.id }
-  });
+  await db.collection("users").doc(session.user.id).delete();
 
   return { success: true };
 }

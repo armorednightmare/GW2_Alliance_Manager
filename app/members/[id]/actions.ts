@@ -68,7 +68,7 @@ export async function addMemberToManualGuild(data: FormData) {
   if (!guildDoc.exists || !guildDoc.data()?.isManual) {
     throw new Error("Gilde nicht gefunden oder nicht manuell.");
   }
-  const guild = guildDoc.data();
+  const guild = guildDoc.data()!;
 
   const memberRef = db.collection("members").doc(memberId);
   const memberDoc = await memberRef.get();
