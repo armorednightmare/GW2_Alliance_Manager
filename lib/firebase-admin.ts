@@ -8,17 +8,21 @@ if (!admin.apps.length) {
         projectId: 'gw2-alliance-manager',
       });
       console.log('Firebase Admin initialized for Emulator');
-    } else {
-      // Production or local with real keys
+    } else if (process.env.FIREBASE_PRIVATE_KEY && process.env.FIREBASE_PROJECT_ID) {
+      // Local or specific production with real keys
       admin.initializeApp({
         credential: admin.credential.cert({
           projectId: process.env.FIREBASE_PROJECT_ID,
           clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
-          privateKey: process.env.FIREBASE_PRIVATE_KEY?.replace(/\\n/g, '\n'),
+          privateKey: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
         }),
         storageBucket: `${process.env.FIREBASE_PROJECT_ID}.appspot.com`,
       });
-      console.log('Firebase Admin initialized for Production');
+      console.log('Firebase Admin initialized for Production (Explicit Keys)');
+    } else {
+      // App Hosting / Cloud Build automatically provides Default Credentials
+      admin.initializeApp();
+      console.log('Firebase Admin initialized with Application Default Credentials');
     }
     
     // Enable ignoring undefined properties globally
