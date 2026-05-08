@@ -16,8 +16,8 @@ Ein leistungsstarkes Web-Tool zur Verwaltung von Guild Wars 2 Allianzen. Behalte
 - **Frontend/Backend**: [Next.js 14](https://nextjs.org/) (App Router)
 - **Datenbank**: [Firebase Firestore](https://firebase.google.com/products/firestore) (Dokumenten-basiert)
 - **Authentifizierung**: [NextAuth.js](https://next-auth.js.org/) mit Firebase-Admin
-- **Lokale Entwicklung**: [Firebase Emulator Suite](https://firebase.google.com/docs/emulator-suite)
-- **Deployment**: [Docker](https://www.docker.com/) & [Docker Compose](https://docs.docker.com/compose/)
+- **Lokale Entwicklung**: Docker & [Firebase Emulator Suite](https://firebase.google.com/docs/emulator-suite)
+- **Produktion / Deployment**: [Firebase App Hosting](https://firebase.google.com/docs/app-hosting) (Serverless Next.js)
 
 ## 📋 Voraussetzungen
 
@@ -39,17 +39,22 @@ Erstellen Sie eine `.env` Datei im Hauptverzeichnis basierend auf der Vorlage `.
 cp .env.example .env
 ```
 
-### 3. Start mit Docker
+### 3. Start mit Docker (Lokal)
 ```bash
 docker-compose up -d --build
 ```
 Die Anwendung ist nun unter `http://localhost:3001` (Web) und `http://localhost:4000` (Firebase Emulator UI) erreichbar.
 
-### 4. Admin-Nutzer erstellen
-Nach dem ersten Start müssen Sie einen initialen Administrator anlegen:
-```bash
-docker exec gw2-web-firebase node create-admin.js
-```
+### 4. Live Deployment (Firebase App Hosting)
+Für die Produktion wurde das Projekt auf **Firebase App Hosting** optimiert. Pushes auf den `master`-Branch (oder konfigurierte Feature-Branches) triggern automatisch einen Cloud Build und ein Deployment.
+
+### 5. Den ersten Admin-Nutzer erstellen
+Bei einer komplett leeren Datenbank (z.B. nach dem Live-Gang) gibt es noch keinen Administrator:
+1. Loggen Sie sich auf der fertigen Webseite (Lokal oder Live) mit Discord, Google oder E-Mail ein.
+2. Gehen Sie in die **Firebase Console** -> **Firestore Database**.
+3. Öffnen Sie die Sammlung `users` und suchen Sie Ihr soeben erstelltes Profil-Dokument.
+4. Ändern Sie das Feld `role` von `"WEB_MEMBER"` zu `"ADMIN"`.
+5. Nach einem Neuladen der Webseite erscheint das Admin-Panel in der Navigation.
 
 ## 📄 Dokumentation
 

@@ -37,11 +37,11 @@ Dieses Dokument trackt den Status der Migration des **GW2 Alliance Managers** au
 ## 🚀 Phase 5: Produktion & Daten-Umzug
 - [x] **5.1 Migrationsskript schreiben**
   - [x] Skript finalisiert & erfolgreich getestet.
-- [ ] **5.2 Finaler Rollout (Online)**
-  - [ ] Firebase Projekt live schalten & Billing aktivieren.
-  - [ ] GitHub Repository mit Firebase App Hosting verknüpfen.
-  - [ ] DNS/Domain auf Firebase umstellen.
-  - [ ] Finales Migrationsskript gegen Produktions-DB ausführen.
+- [x] **5.2 Finaler Rollout (Online)**
+  - [x] Firebase Projekt live schalten & Billing aktivieren.
+  - [x] GitHub Repository mit Firebase App Hosting verknüpfen.
+  - [x] DNS/Domain auf Firebase umstellen.
+  - [x] Finales Migrationsskript gegen Produktions-DB ausführen.
 - [x] **5.3 Cleanup & Doku**
   - [x] Deep-Clean Skripte für Emulator-Resets erstellt.
   - [x] Dokumentation für Firebase Setup aktualisiert.
