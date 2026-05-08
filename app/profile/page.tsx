@@ -57,6 +57,27 @@ export default async function ProfilePage() {
   return (
     <div className="profile-page-wrapper">
       <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)" }}>Mein Profil</h1>
+
+      {sanitizedUser.role === "NEW_USER" && (
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(102,252,241,0.15), rgba(102,252,241,0.05))',
+          border: '2px solid rgba(102,252,241,0.4)',
+          borderRadius: '12px',
+          padding: '1.5rem 2rem',
+          marginBottom: '2rem',
+          animation: 'fadeIn 0.5s ease-in'
+        }}>
+          <h2 style={{ margin: '0 0 0.5rem 0', color: 'var(--accent-color)', fontSize: '1.2rem' }}>
+            👋 Willkommen in der Allianz!
+          </h2>
+          <p style={{ margin: 0, opacity: 0.9, lineHeight: 1.6 }}>
+            Um auf das Dashboard, die Mitgliederliste und alle weiteren Funktionen zugreifen zu können,
+            musst du zunächst deinen <strong>GW2 API-Key</strong> unten eingeben und dein Konto verknüpfen.
+            Danach wird dein Zugang automatisch freigeschaltet.
+          </p>
+        </div>
+      )}
+
       <p style={{ opacity: 0.8, marginBottom: '2rem' }}>
         Willkommen zurück, <strong>{sanitizedUser.name || sanitizedUser.email}</strong>. Hier sehen Sie Ihre verknüpften Alliance-Daten.
       </p>

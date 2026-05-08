@@ -1,4 +1,4 @@
-export type CustomRole = "ADMIN" | "ALLIANCE_LEADER" | "GUILD_LEADER" | "WEB_MEMBER";
+export type CustomRole = "ADMIN" | "ALLIANCE_LEADER" | "GUILD_LEADER" | "WEB_MEMBER" | "NEW_USER";
 
 export interface AuthUser {
   id: string;

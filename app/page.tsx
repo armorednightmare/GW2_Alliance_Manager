@@ -43,6 +43,11 @@ export default async function Dashboard() {
 
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
+  const user = (session as any)?.user;
+
+  if (user?.role === "NEW_USER") {
+    redirect("/profile?new=1");
+  }
 
   // Note: collectionGroup requires an index in Firestore for filtering/ordering
   // We wrap this in try-catch to avoid crashing the whole dashboard if the index isn't ready

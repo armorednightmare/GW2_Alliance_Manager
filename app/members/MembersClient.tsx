@@ -24,8 +24,22 @@ type MemberWithGuilds = {
 export default function MembersClient({ initialMembers }: { initialMembers: MemberWithGuilds[] }) {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
+  const [guildFilter, setGuildFilter] = useState("ALL");
   const [sortField, setSortField] = useState<string>("accountName");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  // Extract unique guilds for the filter dropdown
+  const uniqueGuilds = useMemo(() => {
+    const guildsMap = new Map<string, string>(); // Tag -> Name
+    initialMembers.forEach(m => {
+      m.guilds?.forEach(mg => {
+        if (mg.guild?.tag) {
+          guildsMap.set(mg.guild.tag, mg.guild.name || mg.guild.tag);
+        }
+      });
+    });
+    return Array.from(guildsMap.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [initialMembers]);
 
   const handleSort = (field: string) => {
     if (sortField === field) {
@@ -41,6 +55,12 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
 
     if (statusFilter !== "ALL") {
       filtered = filtered.filter(m => m.status === statusFilter);
+    }
+
+    if (guildFilter !== "ALL") {
+      filtered = filtered.filter(m => 
+        m.guilds?.some(mg => mg.guild?.tag === guildFilter)
+      );
     }
 
     if (search.trim()) {
@@ -75,7 +95,7 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
       if (valA > valB) return sortDir === "asc" ? 1 : -1;
       return 0;
     });
-  }, [initialMembers, search, statusFilter, sortField, sortDir]);
+  }, [initialMembers, search, statusFilter, guildFilter, sortField, sortDir]);
 
   const SortIcon = ({ field }: { field: string }) => {
     if (sortField !== field) return <span style={{opacity: 0.3, marginLeft: '4px', fontSize: '0.8rem'}}>↕</span>;
@@ -101,6 +121,20 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
           <option value="ALL" style={{ background: "#1e1e1e" }}>Alle Status</option>
           <option value="ACTIVE" style={{ background: "#1e1e1e" }}>Nur Aktive</option>
           <option value="INACTIVE_LEFT" style={{ background: "#1e1e1e" }}>Nur Inaktive (Verlassen)</option>
+        </select>
+        
+        <select
+          value={guildFilter}
+          onChange={(e: React.ChangeEvent<HTMLSelectElement>) => setGuildFilter(e.target.value)}
+          className="search-input glass-panel"
+          style={{ cursor: "pointer", background: "#1e1e1e", color: "white" }}
+        >
+          <option value="ALL" style={{ background: "#1e1e1e" }}>Alle Gilden</option>
+          {uniqueGuilds.map(([tag, name]) => (
+            <option key={tag} value={tag} style={{ background: "#1e1e1e" }}>
+              [{tag}] {name}
+            </option>
+          ))}
         </select>
         <span style={{opacity: 0.7, textShadow: '0 0 5px rgba(255,255,255,0.2)'}}>{filteredMembers.length} Spieler {(filteredMembers.length !== initialMembers.length) ? 'gefiltert' : 'gesamt'}</span>
       </div>

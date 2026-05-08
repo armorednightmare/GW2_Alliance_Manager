@@ -41,6 +41,10 @@ export default function GuildsClient({ initialGuilds, totalAllianceMembers }: { 
       if (a.isAllianceGuild && !b.isAllianceGuild) return -1;
       if (!a.isAllianceGuild && b.isAllianceGuild) return 1;
 
+      // Force "andere" to the very bottom
+      if (a.id === "andere" && b.id !== "andere") return 1;
+      if (a.id !== "andere" && b.id === "andere") return -1;
+
       // Secondary sort: User selected field
       let valA = a[sortField];
       let valB = b[sortField];

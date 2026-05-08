@@ -13,6 +13,10 @@ export default async function MembersPage() {
   if (!session) redirect("/login");
   const user = (session as any)?.user as AuthUser | undefined;
 
+  if (user?.role === "NEW_USER") {
+    redirect("/profile?new=1");
+  }
+
   const membersSnapshot = await db.collection("members").orderBy("accountName", "asc").get();
   let members = membersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
 

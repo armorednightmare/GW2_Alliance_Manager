@@ -1,6 +1,7 @@
 export const dynamic = 'force-dynamic';
 import { db } from "@/lib/firebase-admin";
 import GuildsClient from "./GuildsClient";
+import OverlapChart from "./OverlapChart";
 import "../members/Members.css"; // Reuse styling for data tables
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -10,6 +11,7 @@ import { sanitizeData } from "@/lib/utils";
 export default async function GuildsPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
+  if ((session as any)?.user?.role === "NEW_USER") redirect("/profile?new=1");
   const guildsSnapshot = await db.collection("guilds").get();
   const guilds = guildsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
 
@@ -42,6 +44,24 @@ export default async function GuildsPage() {
     };
   });
 
+  // Calculate "Andere" members (Alliance members not in any registered subguild)
+  const subGuildIds = new Set(guilds.filter(g => !g.isAllianceGuild).map(g => g.id));
+  const andereMembers = activeMembers.filter(m => 
+    m.isAllianceMember && 
+    !(m.guilds || []).some((mg: any) => subGuildIds.has(mg.id))
+  );
+  const andereWvwMembers = andereMembers.filter((m: any) => m.wvwMember);
+
+  guildsWithStats.push({
+    id: "andere",
+    name: "Andere (Keine Sub-Gilde)",
+    tag: "???",
+    isAllianceGuild: false,
+    hasLeaderToken: false,
+    totalActive: andereMembers.length,
+    wvwActive: andereWvwMembers.length
+  });
+
   const totalAllianceMembersSnapshot = await db.collection("members")
     .where("isAllianceMember", "==", true)
     .where("status", "==", "ACTIVE")
@@ -55,6 +75,8 @@ export default async function GuildsPage() {
       <p style={{ opacity: 0.8 }}>Hier sehen Sie alle verknüpften Gilden, deren Mitgliederanzahl und den Anteil zur Allianz. Anklicken der Köpfe sortiert die Tabelle.</p>
       
       <GuildsClient initialGuilds={sanitizeData(guildsWithStats)} totalAllianceMembers={totalAllianceMembers} />
+      
+      <OverlapChart members={sanitizeData(activeMembers)} guilds={sanitizeData(guilds)} />
     </div>
   );
 }

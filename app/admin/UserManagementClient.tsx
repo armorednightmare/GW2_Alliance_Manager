@@ -9,13 +9,14 @@ import {
   updateUserManagedGuilds
 } from "./actions";
 
-const ROLES = ["ADMIN", "ALLIANCE_LEADER", "GUILD_LEADER", "WEB_MEMBER"];
+const ROLES = ["ADMIN", "ALLIANCE_LEADER", "GUILD_LEADER", "WEB_MEMBER", "NEW_USER"];
 
 const ROLE_COLORS: Record<string, string> = {
   ADMIN: "#e74c3c",
   ALLIANCE_LEADER: "#9b59b6",
   GUILD_LEADER: "#3498db",
   WEB_MEMBER: "#7f8c8d",
+  NEW_USER: "#f39c12",
 };
 
 interface ManagedGuild {

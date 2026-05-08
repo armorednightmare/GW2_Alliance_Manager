@@ -24,9 +24,17 @@ export async function verifyAndLinkApiKey(apiKey: string) {
 
     const member = memberSnapshot.docs[0];
 
+    const userDoc = await db.collection("users").doc(session.user.id).get();
+    
+    let newRole = userDoc.data()?.role;
+    if (newRole === "NEW_USER") {
+      newRole = "WEB_MEMBER"; // Upgrade upon successful link
+    }
+
     // Link it
     await db.collection("users").doc(session.user.id).update({
-      memberId: member.id
+      memberId: member.id,
+      role: newRole
     });
 
     return { success: true, accountName };

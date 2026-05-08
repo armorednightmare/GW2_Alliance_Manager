@@ -10,14 +10,20 @@ export default async function Sidebar(): Promise<JSX.Element> {
   const role = user?.role;
   const isAdmin = role === "ADMIN" || role === "ALLIANCE_LEADER" || role === "GUILD_LEADER";
 
+  const isNewUser = role === "NEW_USER";
+
   return (
     <SidebarClient>
       <nav>
         <ul>
-          <li><Link href="/">Dashboard</Link></li>
-          <li><Link href="/guilds">Gilden</Link></li>
-          <li><Link href="/members">Mitglieder</Link></li>
-          <li><Link href="/history">Historie</Link></li>
+          {!isNewUser && (
+            <>
+              <li><Link href="/">Dashboard</Link></li>
+              <li><Link href="/guilds">Gilden</Link></li>
+              <li><Link href="/members">Mitglieder</Link></li>
+              <li><Link href="/history">Historie</Link></li>
+            </>
+          )}
         </ul>
       </nav>
 

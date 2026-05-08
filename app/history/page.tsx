@@ -13,6 +13,7 @@ export default async function HistoryPage() {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
   const user = (session as any)?.user as AuthUser | undefined;
+  if (user?.role === "NEW_USER") redirect("/profile?new=1");
 
   const visibility = await getHistoryVisibilityFilter(user);
 

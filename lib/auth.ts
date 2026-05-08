@@ -66,7 +66,7 @@ export const authOptions: NextAuthOptions = {
             name: user.name || (profile as any).name || (profile as any).username,
             image: user.image || (profile as any).image_url || (profile as any).picture,
             discordId: account.provider === "discord" ? user.id : null,
-            role: "WEB_MEMBER",
+            role: "NEW_USER",
             createdAt: new Date()
           });
         } else {
