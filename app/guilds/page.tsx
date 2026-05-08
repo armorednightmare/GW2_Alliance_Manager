@@ -27,12 +27,12 @@ export default async function GuildsPage() {
   const activeMembers = activeMembersSnapshot.docs.map(doc => doc.data()) as any[];
 
   const guildsWithStats = guilds.map((g: any) => {
-    const membersOfThisGuild = activeMembers.filter(m => 
-        (m.guilds || []).some((mg: any) => mg.id === g.id)
+    const membersOfThisGuild = activeMembers.filter(m =>
+      (m.guilds || []).some((mg: any) => mg.id === g.id)
     );
 
     const wvwMembers = membersOfThisGuild.filter((m: any) => m.wvwMember);
-    
+
     return {
       id: g.id,
       name: g.name,
@@ -46,15 +46,15 @@ export default async function GuildsPage() {
 
   // Calculate "Andere" members (Alliance members not in any registered subguild)
   const subGuildIds = new Set(guilds.filter(g => !g.isAllianceGuild).map(g => g.id));
-  const andereMembers = activeMembers.filter(m => 
-    m.isAllianceMember && 
+  const andereMembers = activeMembers.filter(m =>
+    m.isAllianceMember &&
     !(m.guilds || []).some((mg: any) => subGuildIds.has(mg.id))
   );
   const andereWvwMembers = andereMembers.filter((m: any) => m.wvwMember);
 
   guildsWithStats.push({
     id: "andere",
-    name: "Andere (Keine Sub-Gilde)",
+    name: "Andere",
     tag: "???",
     isAllianceGuild: false,
     hasLeaderToken: false,
@@ -66,16 +66,16 @@ export default async function GuildsPage() {
     .where("isAllianceMember", "==", true)
     .where("status", "==", "ACTIVE")
     .count().get();
-  
+
   const totalAllianceMembers = totalAllianceMembersSnapshot.data().count;
 
   return (
     <div>
-      <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)"}}>Gilden</h1>
+      <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)" }}>Gilden</h1>
       <p style={{ opacity: 0.8 }}>Hier sehen Sie alle verknüpften Gilden, deren Mitgliederanzahl und den Anteil zur Allianz. Anklicken der Köpfe sortiert die Tabelle.</p>
-      
+
       <GuildsClient initialGuilds={sanitizeData(guildsWithStats)} totalAllianceMembers={totalAllianceMembers} />
-      
+
       <OverlapChart members={sanitizeData(activeMembers)} guilds={sanitizeData(guilds)} />
     </div>
   );
