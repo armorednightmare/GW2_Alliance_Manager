@@ -3,6 +3,7 @@ import { db } from "@/lib/firebase-admin";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { AuthUser } from "@/lib/permissions";
+import bcrypt from "bcryptjs";
 
 export async function verifyAndLinkApiKey(apiKey: string) {
   const session = (await getServerSession(authOptions)) as { user: AuthUser } | null;
@@ -59,16 +60,32 @@ export async function changePassword(currentUsername: string, currentPassword: s
   const userDoc = await db.collection("users").doc(session.user.id).get();
   const user = userDoc.data();
   
-  if (!user || user.name !== currentUsername || user.passwordHash !== currentPassword) {
-    return { success: false, error: "Aktueller Benutzername oder Passwort ist falsch." };
+  if (!user || user.name !== currentUsername) {
+    return { success: false, error: "Aktueller Benutzername ist falsch." };
+  }
+
+  // Verify current password (bcrypt-aware)
+  const storedPassword = user.passwordHash;
+  const isBcryptHash = typeof storedPassword === "string" && storedPassword.startsWith("$2");
+  let passwordValid = false;
+
+  if (isBcryptHash) {
+    passwordValid = await bcrypt.compare(currentPassword, storedPassword);
+  } else {
+    passwordValid = (storedPassword === currentPassword);
+  }
+
+  if (!passwordValid) {
+    return { success: false, error: "Aktuelles Passwort ist falsch." };
   }
 
   if (newPassword.length < 4) {
     return { success: false, error: "Das neue Passwort muss mindestens 4 Zeichen lang sein." };
   }
 
+  const hash = await bcrypt.hash(newPassword, 10);
   await db.collection("users").doc(session.user.id).update({
-    passwordHash: newPassword
+    passwordHash: hash
   });
 
   return { success: true };

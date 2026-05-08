@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { runDatabaseBackup, getGoogleDriveClient } from "@/lib/backup";
+import bcrypt from "bcryptjs";
 
 // ── Helpers: Role Checks ─────────────────────────────────────────────────────
 interface UserSession {
@@ -183,8 +184,11 @@ export async function deleteUser(userId: string) {
 
 export async function resetUserPassword(userId: string, newPassword: string) {
   await requireAdmin();
+  const hash = await bcrypt.hash(newPassword, 10);
   await db.collection("users").doc(userId).update({
-    passwordHash: newPassword
+    passwordHash: hash,
+    failedLoginAttempts: 0,
+    lockoutUntil: null
   });
   revalidatePath("/admin");
 }
@@ -291,9 +295,11 @@ export async function createManualUser(data: FormData) {
   const existing = await db.collection("users").where("name", "==", username).limit(1).get();
   if (!existing.empty) throw new Error("Dieser Benutzername existiert bereits");
 
+  const hash = await bcrypt.hash(password, 10);
+
   await db.collection("users").add({
     name: username,
-    passwordHash: password, // In prod use bcrypt
+    passwordHash: hash,
     role: role || "WEB_MEMBER",
     createdAt: new Date()
   });

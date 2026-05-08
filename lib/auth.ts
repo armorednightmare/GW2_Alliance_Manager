@@ -3,6 +3,7 @@ import DiscordProvider from "next-auth/providers/discord";
 import GoogleProvider from "next-auth/providers/google";
 import CredentialsProvider from "next-auth/providers/credentials";
 import { db } from "@/lib/firebase-admin";
+import bcrypt from "bcryptjs";
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -39,16 +40,63 @@ export const authOptions: NextAuthOptions = {
         if (!userDoc) return null;
         const user = userDoc.data();
 
-        // In local development we compare directly; in production use bcrypt.compare
-        if (user && user.passwordHash === credentials.password) {
-          return { 
-            id: userDoc.id, 
-            email: user.email, 
-            name: user.name,
-            role: user.role 
-          };
+        // --- Phase 4: Brute-force lockout check ---
+        if (user.lockoutUntil) {
+          const lockoutTime = user.lockoutUntil.toDate ? user.lockoutUntil.toDate() : new Date(user.lockoutUntil);
+          if (new Date() < lockoutTime) {
+            // Still locked out
+            return null;
+          }
+          // Lockout expired — reset counters
+          await userDoc.ref.update({ failedLoginAttempts: 0, lockoutUntil: null });
         }
-        return null;
+
+        // --- Phase 2: Seamless bcrypt migration ---
+        const storedPassword = user.passwordHash;
+        if (!storedPassword) return null;
+
+        const isBcryptHash = typeof storedPassword === "string" && storedPassword.startsWith("$2");
+        let passwordValid = false;
+
+        if (isBcryptHash) {
+          // Already migrated — use bcrypt compare
+          passwordValid = await bcrypt.compare(credentials.password, storedPassword);
+        } else {
+          // Legacy plain text — direct comparison
+          passwordValid = (storedPassword === credentials.password);
+
+          if (passwordValid) {
+            // Silently upgrade to bcrypt hash
+            const hash = await bcrypt.hash(credentials.password, 10);
+            await userDoc.ref.update({ passwordHash: hash });
+          }
+        }
+
+        if (!passwordValid) {
+          // --- Phase 4: Increment failed attempts ---
+          const attempts = (user.failedLoginAttempts || 0) + 1;
+          const updateData: any = { failedLoginAttempts: attempts };
+
+          if (attempts >= 5) {
+            // Lock account for 15 minutes
+            updateData.lockoutUntil = new Date(Date.now() + 15 * 60 * 1000);
+          }
+
+          await userDoc.ref.update(updateData);
+          return null;
+        }
+
+        // Successful login — reset failed attempts
+        if (user.failedLoginAttempts > 0) {
+          await userDoc.ref.update({ failedLoginAttempts: 0, lockoutUntil: null });
+        }
+
+        return { 
+          id: userDoc.id, 
+          email: user.email, 
+          name: user.name,
+          role: user.role 
+        };
       }
     })
   ],
