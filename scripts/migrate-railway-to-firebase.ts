@@ -1,8 +1,6 @@
+import "dotenv/config";
 import { db } from "../lib/firebase-admin";
 import { Client } from "pg";
-import * as dotenv from "dotenv";
-
-dotenv.config();
 
 /**
  * MIGRATIONS-SKRIPT: Railway (PostgreSQL) -> Firebase (Firestore)
@@ -111,6 +109,17 @@ async function migrate() {
 
     // --- 5. Benutzer migrieren ---
     console.log("🔑 Migriere Benutzer...");
+    
+    // Prisma M2M Join-Tabelle auslesen: A = Guild ID, B = User ID
+    const managersRes = await pg.query('SELECT * FROM "_GuildManagers"');
+    const userToManagedGuilds: Record<string, string[]> = {};
+    for (const row of managersRes.rows) {
+       const guildId = row.A;
+       const userId = row.B;
+       if (!userToManagedGuilds[userId]) userToManagedGuilds[userId] = [];
+       userToManagedGuilds[userId].push(guildId);
+    }
+
     const usersRes = await pg.query('SELECT * FROM "User"');
     for (const u of usersRes.rows) {
       await db.collection("users").doc(u.id).set({
@@ -122,6 +131,7 @@ async function migrate() {
         role: u.role || "WEB_MEMBER",
         memberId: u.memberId || null,
         discordId: u.discordId || null,
+        managedGuildIds: userToManagedGuilds[u.id] || [], // NEU: Fehlende Admin-Panel Haken
         lastLoginAt: u.lastLoginAt || null,
         createdAt: u.createdAt || new Date()
       });

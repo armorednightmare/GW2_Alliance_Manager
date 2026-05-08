@@ -45,22 +45,27 @@ export default async function Dashboard() {
   if (!session) redirect("/login");
 
   // Note: collectionGroup requires an index in Firestore for filtering/ordering
-  // For now, we fetch across all member histories
-  const recentHistorySnapshot = await db.collectionGroup("history")
-    .orderBy("timestamp", "desc")
-    .limit(10)
-    .get();
+  // We wrap this in try-catch to avoid crashing the whole dashboard if the index isn't ready
+  let recentHistory: any[] = [];
+  try {
+    const recentHistorySnapshot = await db.collectionGroup("history")
+      .orderBy("timestamp", "desc")
+      .limit(10)
+      .get();
 
-  const recentHistory = await Promise.all(recentHistorySnapshot.docs.map(async (doc) => {
-    const data = doc.data();
-    const memberDoc = await doc.ref.parent.parent?.get();
-    return sanitizeData({
-      id: doc.id,
-      ...data,
-      createdAt: data.timestamp?.toDate() || new Date(),
-      member: memberDoc?.data() || { accountName: "Unbekannt" }
-    });
-  }));
+    recentHistory = await Promise.all(recentHistorySnapshot.docs.map(async (doc) => {
+      const data = doc.data();
+      const memberDoc = await doc.ref.parent.parent?.get();
+      return sanitizeData({
+        id: doc.id,
+        ...data,
+        createdAt: data.timestamp?.toDate() || new Date(),
+        member: memberDoc?.data() || { accountName: "Unbekannt" }
+      });
+    }));
+  } catch (error) {
+    console.error("Error fetching recent history (Check if Firestore index is created):", error);
+  }
 
   const sanitizedDangerMembers = sanitizeData(activeMembersInDanger);
 

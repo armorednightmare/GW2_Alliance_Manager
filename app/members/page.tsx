@@ -23,8 +23,11 @@ export default async function MembersPage() {
      const managedIds = user.subGuildIds || [];
      members = members.filter((m: any) => 
         m.isAllianceMember || 
-        (m.guilds || []).some((g: any) => managedIds.includes(g.id))
+        (m.guilds || []).some((g: any) => managedIds.includes(g.id)) ||
+        m.status === "INACTIVE_LEFT"
      );
+  } else if (user.role === "ALLIANCE_LEADER") {
+     members = members.filter((m: any) => m.isAllianceMember || m.status === "INACTIVE_LEFT");
   }
 
   // Mask ranks for guilds the user is not part of, and serialize Timestamps
