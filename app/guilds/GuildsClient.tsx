@@ -95,7 +95,7 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
       totalMembers: andereAll.length,
       wvwExclusive: andereWvw.length,
       wvwOverlap: 0,
-      overlapDetails: {},
+      overlapDetails: {} as Record<string, number>,
       color: "#555e6e",
       isAndere: true
     } : null;
@@ -220,7 +220,7 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
                 
                 // Highlight row if pie chart overlaps with this guild, or if hovered
                 const isHovered = hoveredId === g.id;
-                const isLinkedOverlap = !!(hoveredChartStats && !hoveredChartStats.isAndere && hoveredChartStats.overlapDetails[g.id]);
+                const isLinkedOverlap = !!(hoveredChartStats && !hoveredChartStats.isAndere && hoveredChartStats.overlapDetails[g.id as string]);
                 
                 return (
                   <tr 
@@ -320,7 +320,7 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
                 const largeArcFlag = slicePercent > 0.5 ? 1 : 0;
 
                 const isHovered = hoveredId === s.id;
-                const isLinkedOverlap = !!(hoveredChartStats && !hoveredChartStats.isAndere && hoveredChartStats.overlapDetails[s.id]);
+                const isLinkedOverlap = !!(hoveredChartStats && !hoveredChartStats.isAndere && hoveredChartStats.overlapDetails[s.id as string]);
 
                 let opacity = hoveredId ? 0.15 : 0.75;
                 let outerR = 1.0;
