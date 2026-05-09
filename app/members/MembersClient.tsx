@@ -67,6 +67,7 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
       const s = search.toLowerCase();
       filtered = filtered.filter(m => 
         m.accountName.toLowerCase().includes(s) || 
+        (m.invitedBy && m.invitedBy.toLowerCase().includes(s)) ||
         m.guilds.some(mg => 
           mg.guild?.name?.toLowerCase().includes(s) || 
           mg.guild?.tag?.toLowerCase().includes(s) || 

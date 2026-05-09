@@ -72,6 +72,7 @@ async function migrate() {
         isAllianceMember: m.isAllianceMember,
         comment: m.comment,
         manualRole: m.manualRole,
+        invitedBy: m.invitedBy,
         guilds: guilds,
         joinedAt: m.joinedAt,
         lastSeenAt: m.lastSeenAt,

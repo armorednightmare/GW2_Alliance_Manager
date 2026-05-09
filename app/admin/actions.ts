@@ -558,7 +558,8 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
       joinedAt: findValue(["Beitritt", "Datum Join", "Join Date", "Mitglied seit", "Eintritt", "Join"], "joinedAt"),
       discordName: findValue(["Discordname", "Discord Name", "Discord Tag", "Discord"], "discordName")?.toString().trim() || "",
       guildName: findValue(["Gildenzugehörigkeit", "Gilde", "Guild"], "guildName")?.toString().trim() || "",
-      comment: findValue(["Info", "Kommentar", "Notiz", "Comment", "Note"], "comment")?.toString().trim() || ""
+      comment: findValue(["Info", "Kommentar", "Notiz", "Comment", "Note"], "comment")?.toString().trim() || "",
+      invitedBy: findValue(["Eingeladen von", "Invited by", "InvitedBy", "Werber"], "invitedBy")?.toString().trim() || ""
     };
 
     // Special handling for [keine Zugehörigkeit]
@@ -581,6 +582,7 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
       discordName: { old: "", new: excelData.discordName, isChanged: !!excelData.discordName },
       guildName: { old: "", new: excelData.guildName, isChanged: !!excelData.guildName },
       comment: { old: "", new: excelData.comment, isChanged: !!excelData.comment },
+      invitedBy: { old: "", new: excelData.invitedBy, isChanged: !!excelData.invitedBy },
     };
 
     if (existing) {
@@ -662,7 +664,22 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
         diff.joinedAt = { old: oldJoinedAt, new: oldJoinedAt, isChanged: false };
       }
 
-      // 5. Secondary Guild (Check ALL memberships)
+      // 5. InvitedBy
+      const oldInvitedBy = existing.invitedBy || "";
+      if (excelData.invitedBy && !isSame(oldInvitedBy, excelData.invitedBy)) {
+        if (oldInvitedBy) {
+          status = "CONFLICT";
+          conflicts.push(`Eingeladen von: DB(${oldInvitedBy}) vs Excel(${excelData.invitedBy})`);
+          diff.invitedBy = { old: oldInvitedBy, new: excelData.invitedBy, isChanged: true, conflict: true };
+        } else {
+          updates.push("Eingeladen von hinzufügen");
+          diff.invitedBy = { old: oldInvitedBy, new: excelData.invitedBy, isChanged: true };
+        }
+      } else {
+        diff.invitedBy = { old: oldInvitedBy, new: oldInvitedBy, isChanged: false };
+      }
+
+      // 6. Secondary Guild (Check ALL memberships)
       const isAlreadyInGuild = (existing.guilds || []).some((mg: any) => 
         isSame(mg.guild?.name, excelData.guildName, true) || 
         isSame(mg.guild?.tag, excelData.guildName, true)
@@ -738,6 +755,9 @@ export async function executeMemberImport(selectedItems: any[], overwriteConflic
       } else if (!isNew) {
         memberData.joinedAt = memberDoc?.data()?.joinedAt || null;
       }
+
+      if (diff.invitedBy?.isChanged) memberData.invitedBy = data.invitedBy || null;
+      else if (!isNew) memberData.invitedBy = memberDoc?.data()?.invitedBy || null;
 
       // Handle Guilds denormalization
       let updatedGuilds = [...existingGuilds];
@@ -826,6 +846,15 @@ export async function executeMemberImport(selectedItems: any[], overwriteConflic
           type: diff.comment.old ? "COMMENT_CHANGED" : "COMMENT_ADDED",
           newValue: data.comment,
           oldValue: diff.comment.old || null,
+          timestamp: new Date()
+        });
+      }
+
+      if (diff.invitedBy?.isChanged) {
+        await memberRef.collection("history").add({
+          type: "INVITED_BY_CHANGED",
+          newValue: data.invitedBy,
+          oldValue: diff.invitedBy.old || null,
           timestamp: new Date()
         });
       }
