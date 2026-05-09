@@ -1,7 +1,6 @@
 export const dynamic = 'force-dynamic';
 import { db } from "@/lib/firebase-admin";
 import GuildsClient from "./GuildsClient";
-import OverlapChart from "./OverlapChart";
 import "../members/Members.css"; // Reuse styling for data tables
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
@@ -69,9 +68,12 @@ export default async function GuildsPage() {
       <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)" }}>Gilden</h1>
       <p style={{ opacity: 0.8 }}>Hier sehen Sie alle verknüpften Gilden, deren Mitgliederanzahl und den Anteil zur Allianz. Anklicken der Köpfe sortiert die Tabelle.</p>
 
-      <GuildsClient initialGuilds={sanitizeData(guildsWithStats)} totalWvwMembers={totalWvwMembers} />
-
-      <OverlapChart members={sanitizeData(activeMembers)} guilds={sanitizeData(guilds)} />
+      <GuildsClient 
+        initialGuilds={sanitizeData(guildsWithStats)} 
+        totalWvwMembers={totalWvwMembers}
+        members={sanitizeData(activeMembers)}
+        allGuilds={sanitizeData(guilds)} 
+      />
     </div>
   );
 }
