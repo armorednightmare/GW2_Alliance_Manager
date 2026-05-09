@@ -12,7 +12,7 @@ type GuildStat = {
   [key: string]: any;
 };
 
-export default function GuildsClient({ initialGuilds, totalAllianceMembers }: { initialGuilds: GuildStat[], totalAllianceMembers: number }) {
+export default function GuildsClient({ initialGuilds, totalWvwMembers }: { initialGuilds: GuildStat[], totalWvwMembers: number }) {
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<string>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -86,12 +86,12 @@ export default function GuildsClient({ initialGuilds, totalAllianceMembers }: { 
               <th onClick={() => handleSort("hasLeaderToken")} style={{cursor:"pointer"}}>Sync-Status <SortIcon field="hasLeaderToken" /></th>
               <th onClick={() => handleSort("totalActive")} style={{cursor:"pointer", textAlign:"right"}}>Aktive Spieler <SortIcon field="totalActive" /></th>
               <th onClick={() => handleSort("wvwActive")} style={{cursor:"pointer", textAlign:"right"}}>WvW Vertreten <SortIcon field="wvwActive" /></th>
-              <th style={{textAlign:"right"}}>Anteil zur Allianz</th>
+              <th style={{textAlign:"right"}}>Anteil (WvW)</th>
             </tr>
           </thead>
           <tbody>
             {filteredGuilds.filter((g: any) => !g.isAllianceGuild).map((g: any) => {
-              const allianceShare = totalAllianceMembers > 0 ? Math.round((g.wvwActive / totalAllianceMembers) * 100) : 0;
+              const wvwShare = totalWvwMembers > 0 ? Math.round((g.wvwActive / totalWvwMembers) * 100) : 0;
               return (
                 <tr key={g.id}>
                   <td>
@@ -102,9 +102,9 @@ export default function GuildsClient({ initialGuilds, totalAllianceMembers }: { 
                   <td style={{textAlign:"right", fontFamily: "monospace", fontSize: "1.1rem"}}>{g.wvwActive}</td>
                   <td style={{textAlign:"right", width: "200px"}}>
                     <div style={{ display: 'inline-block', backgroundColor: 'rgba(255,255,255,0.1)', width: '100px', height: '10px', borderRadius: '5px', overflow: 'hidden', verticalAlign: 'middle', marginRight: '10px' }}>
-                      <div style={{ backgroundColor: 'var(--accent-color)', width: `${allianceShare}%`, height: '100%' }}></div>
+                      <div style={{ backgroundColor: 'var(--accent-color)', width: `${wvwShare}%`, height: '100%' }}></div>
                     </div>
-                    {allianceShare}%
+                    {wvwShare}%
                   </td>
                 </tr>
               );
@@ -117,7 +117,7 @@ export default function GuildsClient({ initialGuilds, totalAllianceMembers }: { 
             )}
 
             {filteredGuilds.filter((g: any) => g.isAllianceGuild).map((g: any) => {
-              const allianceShare = totalAllianceMembers > 0 ? Math.round((g.wvwActive / totalAllianceMembers) * 100) : 0;
+              const wvwShare = totalWvwMembers > 0 ? Math.round((g.wvwActive / totalWvwMembers) * 100) : 0;
               return (
                 <tr key={g.id} style={{ background: 'rgba(102,252,241,0.08)', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
                   <td style={{ borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)' }}>
@@ -129,9 +129,9 @@ export default function GuildsClient({ initialGuilds, totalAllianceMembers }: { 
                   <td style={{textAlign:"right", fontFamily: "monospace", fontSize: "1.1rem", borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)'}}>{g.wvwActive}</td>
                   <td style={{textAlign:"right", width: "200px", borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)'}}>
                     <div style={{ display: 'inline-block', backgroundColor: 'rgba(255,255,255,0.1)', width: '100px', height: '10px', borderRadius: '5px', overflow: 'hidden', verticalAlign: 'middle', marginRight: '10px' }}>
-                      <div style={{ backgroundColor: 'var(--accent-color)', width: `${allianceShare}%`, height: '100%' }}></div>
+                      <div style={{ backgroundColor: 'var(--accent-color)', width: `${wvwShare}%`, height: '100%' }}></div>
                     </div>
-                    {allianceShare}%
+                    {wvwShare}%
                   </td>
                 </tr>
               );

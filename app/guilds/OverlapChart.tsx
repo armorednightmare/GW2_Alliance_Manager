@@ -193,7 +193,7 @@ export default function OverlapChart({ members, guilds }: { members: any[], guil
                   </div>
                 </div>
                 <div style={{ fontWeight: "bold", color: s.color, fontSize: "0.85rem", flexShrink: 0 }}>
-                  {Math.round((s.wvwTotal / totalWvw) * 100)}%
+                  {Math.round((s.wvwTotal / totalWvwMembers) * 100)}%
                 </div>
               </div>
             );

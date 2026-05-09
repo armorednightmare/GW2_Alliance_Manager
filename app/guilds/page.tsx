@@ -62,19 +62,14 @@ export default async function GuildsPage() {
     wvwActive: andereWvwMembers.length
   });
 
-  const totalAllianceMembersSnapshot = await db.collection("members")
-    .where("isAllianceMember", "==", true)
-    .where("status", "==", "ACTIVE")
-    .count().get();
-
-  const totalAllianceMembers = totalAllianceMembersSnapshot.data().count;
+  const totalWvwMembers = activeMembers.filter(m => m.wvwMember && m.isAllianceMember).length;
 
   return (
     <div>
       <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)" }}>Gilden</h1>
       <p style={{ opacity: 0.8 }}>Hier sehen Sie alle verknüpften Gilden, deren Mitgliederanzahl und den Anteil zur Allianz. Anklicken der Köpfe sortiert die Tabelle.</p>
 
-      <GuildsClient initialGuilds={sanitizeData(guildsWithStats)} totalAllianceMembers={totalAllianceMembers} />
+      <GuildsClient initialGuilds={sanitizeData(guildsWithStats)} totalWvwMembers={totalWvwMembers} />
 
       <OverlapChart members={sanitizeData(activeMembers)} guilds={sanitizeData(guilds)} />
     </div>
