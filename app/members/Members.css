@@ -92,3 +92,9 @@
   background-color: rgba(102, 252, 241, 0.1) !important;
 }
 
+.glass-panel {
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-radius: 20px;
+}
+
