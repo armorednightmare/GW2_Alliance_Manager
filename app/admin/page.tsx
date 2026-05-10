@@ -1,5 +1,5 @@
 export const dynamic = 'force-dynamic';
-import { saveThemeSettings, saveSyncSettings, saveBackupSettings } from "./actions";
+import { saveThemeSettings, saveBackupSettings } from "./actions";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -133,22 +133,15 @@ export default async function AdminPage() {
           {/* Global settings only for Higher Staff */}
           {isHigherStaff(user) && (
             <div style={{ marginTop: "2rem", paddingTop: "1.5rem", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-              <form action={saveSyncSettings}>
+              <div style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
                 <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem" }}>⚙️ Background Auto-Sync</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <input 
-                      type="number" 
-                      name="apiSyncInterval" 
-                      defaultValue={settings?.apiSyncInterval || 60} 
-                      min={5} max={1440}
-                      style={{ width: "80px", padding: "0.4rem 0.6rem", background: "rgba(255,255,255,0.1)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px" }} 
-                    />
-                    <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>Auto-Sync Intervall (Minuten)</span>
-                  </div>
-                  <button type="submit" className="btn-primary" style={{ width: "fit-content", padding: "0.5rem 2rem" }}>Sync-Einstellungen Speichern</button>
-                </div>
-              </form>
+                <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.8 }}>
+                  <strong>Letzter erfolgreicher Sync:</strong> {settings?.lastSync?.toDate ? settings.lastSync.toDate().toLocaleString('de-DE') : 'Noch nie'}
+                </p>
+                <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.8rem", opacity: 0.6 }}>
+                  Das Intervall wird nun extern (z.B. über Google Cloud Scheduler) gesteuert, indem <code style={{ background: "rgba(0,0,0,0.3)", padding: "2px 4px", borderRadius: "3px" }}>/api/cron/sync</code> aufgerufen wird.
+                </p>
+              </div>
             </div>
           )}
 

@@ -14,6 +14,8 @@ export async function GET(request: Request) {
 
   try {
     const logs = await syncAllGuildRosters();
+    const { db } = await import("@/lib/firebase-admin");
+    await db.collection("settings").doc("system").set({ lastSync: new Date() }, { merge: true });
     return NextResponse.json({ success: true, changes: logs.length, logs });
   } catch(e: any) {
     return NextResponse.json({ success: false, error: e.message }, { status: 500 });

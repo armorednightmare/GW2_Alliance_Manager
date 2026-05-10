@@ -73,25 +73,6 @@ export async function saveThemeSettings(data: FormData) {
   revalidatePath("/", "layout");
 }
 
-export async function saveSyncSettings(data: FormData) {
-  await requireAllianceLeader();
-  const settingsRef = db.collection("settings").doc("system");
-  const doc = await settingsRef.get();
-  const existing = doc.exists ? doc.data() : null;
-
-  const apiSyncInterval = parseInt(data.get("apiSyncInterval") as string) || existing?.apiSyncInterval || 60;
-
-  await settingsRef.set({
-    ...existing,
-    apiSyncInterval,
-    allianceName: existing?.allianceName || "Alliance",
-    colorPrimary: existing?.colorPrimary || "#2c3e50",
-    colorAccent: existing?.colorAccent || "#27ae60",
-    colorBg: existing?.colorBg || "#121212"
-  }, { merge: true });
-
-  revalidatePath("/", "layout");
-}
 
 export async function saveBackupSettings(data: FormData) {
   await requireAdmin();
