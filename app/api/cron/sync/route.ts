@@ -21,3 +21,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: false, error: e.message }, { status: 500 });
   }
 }
+
+export async function POST(request: Request) {
+  return GET(request);
+}
