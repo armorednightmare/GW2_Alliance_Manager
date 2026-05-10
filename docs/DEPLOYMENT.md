@@ -1,84 +1,70 @@
-# Deployment Guide: Railway (Hosting & Konfiguration)
+# Deployment Guide: Firebase App Hosting & Cloud Scheduler
 
-Dieser Guide erklärt Schritt für Schritt, wie Sie den **GW2 Alliance Manager** auf [Railway](https://railway.app/) hosten und konfigurieren. Wir nutzen hierfür ein optimiertes **Dockerfile**, um maximale Stabilität zu gewährleisten.
+Dieser Guide erklärt Schritt für Schritt, wie Sie den **GW2 Alliance Manager** in der Google Cloud über **Firebase App Hosting** bereitstellen und die automatische Hintergrund-Synchronisation einrichten.
 
 ## 📋 Voraussetzungen
 
-- Ein **Railway-Account**.
+- Ein **Google Cloud / Firebase Account**.
 - Das Repository auf Ihrem **GitHub-Account**.
 - Ein GW2 API-Key für die Initialisierung der Allianz.
 
 ---
 
-## 🚀 Schritt 1: Datenbank (PostgreSQL) erstellen
+## 🚀 Schritt 1: Firebase Projekt & Datenbank
 
-1. Loggen Sie sich bei Railway ein und erstellen Sie ein **New Project**.
-2. Wählen Sie **Provision PostgreSQL** aus.
-3. Railway erstellt nun eine leere PostgreSQL-Instanz.
+Die Einrichtung der Firebase Firestore-Datenbank sowie die lokale Emulator-Umgebung ist detailliert im [Firebase Setup Guide](FIREBASE_SETUP.md) beschrieben. Stellen Sie sicher, dass Ihre Firestore-Datenbank im "Native Mode" läuft und die Sicherheitsregeln gesetzt sind.
 
-## 🔑 Schritt 2: Anwendung (GitHub Repo) hinzufügen
+## 🔑 Schritt 2: Firebase App Hosting Deployment
 
-1. Klicken Sie auf **+ New** -> **GitHub Repo**.
-2. Wählen Sie Ihr Repository `gw2-alliance-manager` aus.
-3. Railway erkennt nun automatisch das **Dockerfile** im Root-Verzeichnis.
+Firebase App Hosting ist die offizielle, serverlose Hosting-Lösung für Next.js Apps in der Google Cloud.
 
-## ⚙️ Schritt 3: Umgebungsvariablen (Variables) konfigurieren
+1. Gehen Sie in der **[Firebase Console](https://console.firebase.google.com/)** zu Ihrem Projekt.
+2. Navigieren Sie zu **App Hosting** (im linken Menü unter Build/Erstellen).
+3. Klicken Sie auf **"Erste Schritte"**.
+4. Verbinden Sie Ihren **GitHub Account** und wählen Sie das Repository `GW2_Alliance_Manager` aus.
+5. Konfigurieren Sie den Build:
+   - Root-Verzeichnis: `/` (oder leer lassen)
+   - Branch: `master`
+6. **Umgebungsvariablen (Secrets)**:
+   Während des Setups werden Sie gefragt, ob Sie Umgebungsvariablen hinzufügen möchten. Fügen Sie hier alle wichtigen Variablen aus Ihrer `.env` hinzu (z.B. `NEXTAUTH_SECRET`, `DISCORD_CLIENT_ID`, `GOOGLE_CLIENT_ID`, etc.). Speichern Sie sensible Daten als **Secret** im Google Secret Manager.
 
-Gehen Sie in den **Variables**-Tab Ihres Web-Services auf Railway und fügen Sie folgende Variablen hinzu. **Wichtig:** Kopieren Sie hier keine Werte aus Ihrer lokalen `.env`-Datei für die Datenbank, da diese nur für Docker-Compose lokal gültig sind!
+App Hosting kümmert sich ab jetzt um den Build-Prozess (`npm run build`) und das globale Routing!
 
-### 📡 System & Netzwerke
-- `DATABASE_URL`: 
-  1. Klicken Sie auf **+ New Variable** -> **Reference**.
-  2. Wählen Sie den PostgreSQL-Service aus.
-  3. Wählen Sie `DATABASE_URL` aus (meist wird dies als `${{PostgreSQL.DATABASE_URL}}` angezeigt).
-  *Hinweis: Dies stellt sicher, dass die App die interne Railway-Verbindung nutzt anstatt "db:5432" zu versuchen.*
-- `NEXTAUTH_URL`: Die URL Ihrer Railway-App (z. B. `https://gw2-manager.up.railway.app`). Muss mit dem Pfad übereinstimmen, den Sie im Browser aufrufen.
-- `NEXTAUTH_SECRET`: Ein zufälliger, geheimer String (generiert mit `openssl rand -base64 32`).
+## ⏰ Schritt 3: Automatischer Sync (Cloud Scheduler)
 
-### 🔑 OAuth (Optional, für Discord/Google Login)
-- `DISCORD_CLIENT_ID`: (Vom Discord Developer Portal)
-- `DISCORD_CLIENT_SECRET`: (Vom Discord Developer Portal)
-- `GOOGLE_CLIENT_ID`: (Von Google Cloud Console)
-- `GOOGLE_CLIENT_SECRET`: (Von Google Cloud Console)
+Da Firebase App Hosting eine Serverless-Umgebung ist, laufen hier keine Hintergrund-Prozesse (wie lokale Cronjobs) dauerhaft weiter. Um die GW2-Gilden regelmäßig zu synchronisieren, nutzen wir den **Google Cloud Scheduler**.
 
----
+1. Gehen Sie in der **[Google Cloud Console](https://console.cloud.google.com/)** zu Ihrem Projekt.
+2. Suchen Sie nach **Cloud Scheduler** und klicken Sie auf **Job erstellen**.
+3. **Konfiguration:**
+   - **Name:** `gw2-alliance-sync`
+   - **Region:** Wählen Sie die Region in der Nähe Ihres App Hostings (z.B. `europe-west4` oder `europe-west3`).
+   - **Häufigkeit (Cron):** `*/10 * * * *` (Alle 10 Minuten)
+   - **Zeitzone:** `Europe/Berlin`
+4. **Ziel-Einstellungen:**
+   - **Zieltyp:** `HTTP`
+   - **URL:** `https://[DEINE-APP-HOSTING-URL]/api/cron/sync`
+   - **HTTP-Methode:** `POST`
+5. **Sicherheit (OIDC Token) - WICHTIG:**
+   - Klappen Sie **Auth Header** auf.
+   - Wählen Sie **OIDC-Token hinzufügen**.
+   - **Dienstkonto:** Wählen Sie das Standard-Compute-Service-Account (z.B. `[PROJEKT-NUMMER]-compute@developer.gserviceaccount.com`).
+   - **Zielgruppe (Audience):** Tragen Sie genau die gleiche URL wie oben ein (`https://[DEINE-APP-HOSTING-URL]/api/cron/sync`).
 
-## 🛠️ Schritt 4: Build & Deployment
-
-Da wir das im Repository enthaltene **Dockerfile** nutzen, kümmert sich Railway um fast alles:
-
-1. **Build Process**: Railway erkennt das `Dockerfile`, installiert die Abhängigkeiten, generiert den Prisma-Client und baut die Next.js App (`next build`).
-2. **Start Process**: Nach dem Build führt der Container eine intelligente Start-Logik aus:
-   - **Prisma Initialisierung**: Das System prüft, ob Migrations-Dateien vorhanden sind.
-     - Wenn **keine** Migrationen existieren (Initial-Phase): Führt `npx prisma db push` aus.
-     - Wenn Migrationen existieren (Produktions-Phase): Führt `npx prisma migrate deploy` aus.
-   - **(npx tsx cron.ts &)**: Startet den automatischen Roster-Sync im Hintergrund.
-   - **node server.js**: Startet die Web-Anwendung.
-
-> [!IMPORTANT]
-> Sollte der Build fehlschlagen, stellen Sie sicher, dass in den Railway-Settings **Docker** als Build-Typ ausgewählt ist und nicht Nixpacks (Standard).
+### Wie das Sync-Intervall in der App funktioniert
+Obwohl der Cloud Scheduler **alle 10 Minuten** anklopft, bestimmen Sie im **Admin Panel** der Web-App, wie oft der Sync *wirklich* ausgeführt werden soll!
+- Wenn Sie im Admin Panel z.B. **"Alle 2 Stunden"** eingestellt haben, bricht der Aufruf einfach ab (und spart Ressourcen), bis die 2 Stunden erreicht sind.
+- Auch die **Automatischen Backups** (Google Drive) hängen an diesem Endpunkt. Das heißt, Sie brauchen keinen separaten Job für Backups!
 
 ---
 
 ## 🛠️ Troubleshooting
 
-### ❌ Fehler `P1001: Can't reach database server`
-- **Lösung**: Überprüfen Sie Ihre `DATABASE_URL` in den Railway-Variables. Nutzen Sie die **Reference**-Funktion (siehe Schritt 3).
+### ❌ Sync schlägt fehl (401 Unauthorized / Invalid Audience)
+- **Lösung:** Stellen Sie sicher, dass in den Cloud Scheduler Einstellungen das Feld "Zielgruppe (Audience)" **exakt** mit der Aufruf-URL übereinstimmt, inklusive `https://` und dem `/api/cron/sync` Pfad. Die App prüft das Token streng auf diesen Wert.
 
-### ❌ Fehler `Cannot find module './lib/prisma'` (Cron)
-- **Lösung**: Dieser Fehler wurde behoben, indem der `lib`-Ordner nun explizit in das Docker-Image kopiert wird. Stellen Sie sicher, dass Sie den neuesten Stand deployt haben.
-
-### ❌ Fehler `Table public.Guild does not exist`
-- **Lösung**: Dieser Fehler tritt auf, wenn die Datenbank noch nicht initialisiert wurde. Die neue Start-Logik (Schritt 4) behebt dies automatisch durch den `db push` Fallback.
-
----
-
-## ⏰ Schritt 5: Automatischer Sync (Cron)
-
-Die Anwendung nutzt eine `cron.ts` Datei, um die Gilden-Roster regelmäßig zu synchronisieren.
-
-- Durch die Konfiguration im `Dockerfile` startet dieser Prozess automatisch im Hintergrund der Web-App.
-- **Wichtig**: Railway Services "schlafen" manchmal (im Free Tier), wenn sie nicht genutzt werden. Der Hintergrundprozess stoppt dann ebenfalls. Für kritische Anwendungen empfiehlt sich ein dauerhafter Service ("Always On").
+### ❌ Fehlende Umgebungsvariablen nach Push
+- **Lösung:** Wenn Sie lokal eine neue Variable (z.B. `BACKUP_ENCRYPTION_KEY`) in die `.env` eintragen, müssen Sie diese auch in der Firebase Console unter **App Hosting -> [Dein Rollout] -> Rollout-Einstellungen -> Umgebungsvariablen** eintragen. Danach muss ein neuer Rollout angestoßen werden.
 
 ---
 
@@ -86,7 +72,5 @@ Die Anwendung nutzt eine `cron.ts` Datei, um die Gilden-Roster regelmäßig zu s
 
 Wenn alles fertig ist:
 1. Öffnen Sie die URL Ihrer Anwendung.
-2. Der erste registrierte Nutzer sollte in der PostgreSQL-Datenbank (via Railway Data-Tab) als `ADMIN` gesetzt werden.
-
-> [!CAUTION]
-> Geben Sie niemals Ihre `DATABASE_URL` oder `NEXTAUTH_SECRET` an Dritte weiter!
+2. Der erste registrierte Nutzer sollte in der Firebase Console unter `users` manuell als `ADMIN` gesetzt werden (siehe README).
+3. Gehen Sie ins **Admin Panel** und konfigurieren Sie das **Sync-Intervall** und den **Backup-Plan**.
