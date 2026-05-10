@@ -76,15 +76,18 @@ export async function addMemberToManualGuild(data: FormData) {
   
   const existingGuilds = memberDoc.data()?.guilds || [];
   
+  const newGuilds = [...existingGuilds, {
+      id: guildId,
+      name: guild.name,
+      tag: guild.tag,
+      rank,
+      lastSeenAt: new Date(),
+      isManual: true
+  }];
+
   await memberRef.update({
-    guilds: [...existingGuilds, {
-        id: guildId,
-        name: guild.name,
-        tag: guild.tag,
-        rank,
-        lastSeenAt: new Date(),
-        isManual: true
-    }]
+    guilds: newGuilds,
+    guildIds: newGuilds.map((g: any) => g.id)
   });
 
   await memberRef.collection("history").add({
@@ -118,7 +121,8 @@ export async function removeMemberFromManualGuild(data: FormData) {
   const remainingGuilds = memberData.guilds.filter((g: any) => g.id !== guildId);
 
   await memberRef.update({
-    guilds: remainingGuilds
+    guilds: remainingGuilds,
+    guildIds: remainingGuilds.map((g: any) => g.id)
   });
 
   await memberRef.collection("history").add({

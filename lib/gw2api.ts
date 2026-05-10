@@ -47,9 +47,8 @@ export async function syncAllGuildRosters() {
       }
 
       // 3. Find members in DB who are supposedly in this guild
-      // We look for members where the 'guilds' array contains this guildId
-      const membersInGuildSnapshot = await db.collection("members").where("guilds", "array-contains", { id: guild.id }).get();
-      
+      // We use the new 'guildIds' string array field for reliable querying
+      const membersInGuildSnapshot = await db.collection("members").where("guildIds", "array-contains", guild.id).get();
       for (const memberDoc of membersInGuildSnapshot.docs) {
         const member = { id: memberDoc.id, ...memberDoc.data() } as any;
         const apiData = apiMemberMap.get(member.accountName);
@@ -57,7 +56,8 @@ export async function syncAllGuildRosters() {
         if (!apiData) {
           // Member left THIS specific guild
           const remainingGuilds = (member.guilds || []).filter((g: any) => g.id !== guild.id);
-          const updateData: any = { guilds: remainingGuilds };
+          const remainingGuildIds = remainingGuilds.map((g: any) => g.id);
+          const updateData: any = { guilds: remainingGuilds, guildIds: remainingGuildIds };
 
           if (remainingGuilds.length === 0) {
             updateData.status = "INACTIVE_LEFT";
@@ -82,6 +82,7 @@ export async function syncAllGuildRosters() {
             
             const updateData: any = { 
               guilds: updatedGuilds,
+              guildIds: updatedGuilds.map((g: any) => g.id),
               status: "ACTIVE",
               lastSeenAt: new Date()
             };
@@ -132,11 +133,13 @@ export async function syncAllGuildRosters() {
           lastSeenAt: new Date()
         };
 
+        const newGuildsArray = [...existingGuilds, newMembership];
         const memberData: any = {
           accountName: accountName,
           status: "ACTIVE",
           lastSeenAt: new Date(),
-          guilds: [...existingGuilds, newMembership],
+          guilds: newGuildsArray,
+          guildIds: newGuildsArray.map((g: any) => g.id),
           ...(inviter ? { invitedBy: inviter } : {}),
           ...(guild.isAllianceGuild ? { isAllianceMember: true, wvwMember: apiData.wvw_member } : {})
         };
