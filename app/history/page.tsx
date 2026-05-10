@@ -26,25 +26,38 @@ export default async function HistoryPage() {
     );
   }
 
-  // Fetch from collectionGroup
-  let query = db.collectionGroup("history").orderBy("timestamp", "desc").limit(limit);
+  // Fetch from collectionGroup - increased limit to show more history
+  let query = db.collectionGroup("history").orderBy("timestamp", "desc").limit(1000);
   
   const snapshot = await query.get();
   
-  const historyRaw = await Promise.all(snapshot.docs.map(async (doc) => {
-    const data = doc.data();
-    const memberDoc = await doc.ref.parent.parent?.get();
-    let memberData = memberDoc?.exists ? { id: memberDoc.id, ...memberDoc.data() } as any : null;
-    
-    if (memberData) {
-        memberData.joinedAt = memberData.joinedAt?.toDate ? memberData.joinedAt.toDate().toISOString() : memberData.joinedAt;
-        memberData.lastSeenAt = memberData.lastSeenAt?.toDate ? memberData.lastSeenAt.toDate().toISOString() : memberData.lastSeenAt;
-        memberData.guilds = (memberData.guilds || []).map((mg: any) => ({
-            ...mg,
-            lastSeenAt: mg.lastSeenAt?.toDate ? mg.lastSeenAt.toDate().toISOString() : mg.lastSeenAt
-        }));
-    }
+  // Optimize member fetching (avoid N+1)
+  const uniqueMemberIds = Array.from(new Set(snapshot.docs.map(doc => doc.ref.parent.parent?.id).filter(Boolean))) as string[];
+  const memberMap = new Map();
+  
+  const chunkSize = 50;
+  for (let i = 0; i < uniqueMemberIds.length; i += chunkSize) {
+      const chunk = uniqueMemberIds.slice(i, i + chunkSize);
+      const memberDocs = await Promise.all(chunk.map(id => db.collection("members").doc(id).get()));
+      memberDocs.forEach(doc => {
+          if (doc.exists) {
+            let data = doc.data() as any;
+            data.joinedAt = data.joinedAt?.toDate ? data.joinedAt.toDate().toISOString() : data.joinedAt;
+            data.lastSeenAt = data.lastSeenAt?.toDate ? data.lastSeenAt.toDate().toISOString() : data.lastSeenAt;
+            data.guilds = (data.guilds || []).map((mg: any) => ({
+                ...mg,
+                lastSeenAt: mg.lastSeenAt?.toDate ? mg.lastSeenAt.toDate().toISOString() : mg.lastSeenAt
+            }));
+            memberMap.set(doc.id, { id: doc.id, ...data });
+          }
+      });
+  }
 
+  const historyRaw = snapshot.docs.map((doc) => {
+    const data = doc.data();
+    const mId = doc.ref.parent.parent?.id;
+    const memberData = mId ? memberMap.get(mId) : null;
+    
     return sanitizeData({
       id: doc.id,
       ...data,
@@ -53,7 +66,7 @@ export default async function HistoryPage() {
       member: memberData,
       memberId: memberData?.id || data.memberId || null
     });
-  }));
+  });
 
   // Filtering based on visibility rules
   let filteredHistory = historyRaw;

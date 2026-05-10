@@ -13,16 +13,27 @@ export async function fetchHistoryLogs(page: number, limit: number, search: stri
 
   if (visibility.none) return { data: [], total: 0 };
 
-  // Note: For large datasets, this would need a proper search engine or better indexing.
-  // For < 1000 items, we fetch a chunk and filter.
-  // Ideally, we'd fetch ALL and then filter/paginate, but that's expensive.
-  // For now, we fetch the latest 200 items and search/paginate within them.
-  const snapshot = await db.collectionGroup("history").orderBy("timestamp", "desc").limit(200).get();
+  // Note: Increased limit to 1000 to show more history, using optimized member fetching.
+  const snapshot = await db.collectionGroup("history").orderBy("timestamp", "desc").limit(1000).get();
   
-  const historyRaw: any[] = await Promise.all(snapshot.docs.map(async (doc) => {
+  // Optimize: Fetch members once instead of for every history event
+  const uniqueMemberIds = Array.from(new Set(snapshot.docs.map(doc => doc.ref.parent.parent?.id).filter(Boolean))) as string[];
+  const memberMap = new Map();
+  
+  // Fetch members in parallel chunks to avoid single massive requests or N+1 problem
+  const chunkSize = 50;
+  for (let i = 0; i < uniqueMemberIds.length; i += chunkSize) {
+      const chunk = uniqueMemberIds.slice(i, i + chunkSize);
+      const memberDocs = await Promise.all(chunk.map(id => db.collection("members").doc(id).get()));
+      memberDocs.forEach(doc => {
+          if (doc.exists) memberMap.set(doc.id, { id: doc.id, ...doc.data() });
+      });
+  }
+
+  const historyRaw: any[] = snapshot.docs.map((doc) => {
     const data = doc.data();
-    const memberDoc = await doc.ref.parent.parent?.get();
-    const memberData = memberDoc?.exists ? { id: memberDoc.id, ...memberDoc.data() } as any : null;
+    const mId = doc.ref.parent.parent?.id;
+    const memberData = mId ? memberMap.get(mId) : null;
     
     return {
       id: doc.id,
@@ -31,7 +42,7 @@ export async function fetchHistoryLogs(page: number, limit: number, search: stri
       member: memberData,
       memberId: memberData?.id || data.memberId || null
     };
-  }));
+  });
 
   // Filtering based on visibility rules
   let filtered = historyRaw;
