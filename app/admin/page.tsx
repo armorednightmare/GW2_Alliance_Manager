@@ -142,7 +142,14 @@ export default async function AdminPage() {
                   <select 
                     name="apiSyncInterval" 
                     defaultValue={settings?.apiSyncInterval || 10}
-                    style={{ padding: "0.4rem 0.6rem", background: "rgba(255,255,255,0.1)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px" }}
+                    style={{ 
+                      padding: "0.4rem 0.6rem", 
+                      background: "#1a1a1a", 
+                      color: "white", 
+                      border: "1px solid rgba(255,255,255,0.2)", 
+                      borderRadius: "4px",
+                      colorScheme: "dark"
+                    }}
                   >
                     <option value="10">Alle 10 Minuten (Standard)</option>
                     <option value="20">Alle 20 Minuten</option>
@@ -174,7 +181,14 @@ export default async function AdminPage() {
                     <select 
                       name="backupCronSchedule" 
                       defaultValue={settings?.backupCronSchedule || "0 3 * * 0"}
-                      style={{ padding: "0.4rem 0.6rem", background: "rgba(255,255,255,0.1)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px" }}
+                      style={{ 
+                        padding: "0.4rem 0.6rem", 
+                        background: "#1a1a1a", 
+                        color: "white", 
+                        border: "1px solid rgba(255,255,255,0.2)", 
+                        borderRadius: "4px",
+                        colorScheme: "dark"
+                      }}
                     >
                       <option value="DISABLED">Deaktiviert</option>
                       <option value="0 3 * * *">Täglich (03:00 Uhr)</option>
