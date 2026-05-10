@@ -396,11 +396,11 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
                       <span style={{ color: "#e67e22" }}>{tooltip.stats.wvwOverlap}</span> auch in anderen Gilden:
                     </div>
                     <div style={{ paddingLeft: "0.5rem", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
-                      {Object.entries(tooltip.stats.overlapDetails as Record<string, any>).map(([gid, count]: [string, any]) => {
+                      {Object.entries(tooltip.stats.overlapDetails as Record<string, number>).map(([gid, count]) => {
                         const g = allGuilds.find((x: any) => x.id === gid);
                         return (
                           <div key={gid} style={{ fontSize: "0.75rem", opacity: 0.7 }}>
-                            → {String(g?.tag || gid)}: <strong style={{ color: "#e67e22" }}>{String(count)}</strong>
+                            → {g?.tag || gid}: <strong style={{ color: "#e67e22" }}>{count}</strong>
                           </div>
                         );
                       })}
