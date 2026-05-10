@@ -87,3 +87,20 @@ export async function fetchHistoryLogs(page: number, limit: number, search: stri
 
   return sanitizeData({ data: maskedData, total });
 }
+
+export async function deleteHistoryEvent(memberId: string, eventId: string) {
+  const session = await getServerSession(authOptions);
+  const user = (session as any)?.user as AuthUser | undefined;
+
+  if (user?.role !== "ADMIN") {
+    throw new Error("Nicht autorisiert. Nur Admins können Historien-Einträge löschen.");
+  }
+
+  if (!memberId || !eventId) {
+    throw new Error("Member ID oder Event ID fehlt.");
+  }
+
+  await db.collection("members").doc(memberId).collection("history").doc(eventId).delete();
+  
+  return { success: true };
+}

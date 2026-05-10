@@ -109,7 +109,11 @@ export default async function HistoryPage() {
       <p style={{ opacity: 0.8 }}>Hier sehen Sie die Aktivitäten aller Mitglieder (Beitritte, Austritte, Änderungen des WvW-Status).</p>
 
       <div className="table-wrapper">
-        <HistoryClient initialHistory={maskedHistory} initialTotal={initialTotal} />
+        <HistoryClient 
+          initialHistory={maskedHistory} 
+          initialTotal={initialTotal} 
+          userRole={user?.role}
+        />
       </div>
     </div>
   );

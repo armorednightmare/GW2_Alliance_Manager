@@ -1,7 +1,7 @@
 "use client";
 import { useState, useEffect, useRef, useTransition } from "react";
 import Link from "next/link";
-import { fetchHistoryLogs } from "./actions";
+import { fetchHistoryLogs, deleteHistoryEvent } from "./actions";
 
 function getEventColor(eventType: string) {
   if (!eventType) return "rgba(255,255,255,0.1)";
@@ -14,7 +14,7 @@ function getEventColor(eventType: string) {
   return "rgba(255,255,255,0.1)";
 }
 
-export default function HistoryClient({ initialHistory, initialTotal }: { initialHistory: any[], initialTotal: number }) {
+export default function HistoryClient({ initialHistory, initialTotal, userRole }: { initialHistory: any[], initialTotal: number, userRole?: string }) {
   const highlightedRef = useRef<HTMLTableRowElement | null>(null);
 
   const [history, setHistory] = useState(initialHistory);
@@ -169,9 +169,37 @@ export default function HistoryClient({ initialHistory, initialTotal }: { initia
                     {h.newValue ? <span style={{ color: "var(--accent-color)" }}>{h.newValue}</span> : "-"}
                   </td>
                   <td style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-                    {(h.memberId || h.member?.id) && (
-                      <Link href={`/members/${h.memberId || h.member.id}`} className="btn-details">Profil</Link>
-                    )}
+                    <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                      {(h.memberId || h.member?.id) && (
+                        <Link href={`/members/${h.memberId || h.member.id}`} className="btn-details">Profil</Link>
+                      )}
+                      {userRole === "ADMIN" && (
+                        <button 
+                          onClick={async () => {
+                            if (confirm("Diesen Eintrag wirklich unwiderruflich löschen?")) {
+                              try {
+                                await deleteHistoryEvent(h.memberId || h.member?.id, h.id);
+                                setHistory(prev => prev.filter(item => item.id !== h.id));
+                                setTotal(prev => prev - 1);
+                              } catch (e: any) {
+                                alert("Fehler beim Löschen: " + e.message);
+                              }
+                            }
+                          }}
+                          style={{ 
+                            background: "rgba(231, 76, 60, 0.2)", 
+                            color: "#e74c3c", 
+                            border: "1px solid rgba(231, 76, 60, 0.4)", 
+                            padding: "0.3rem 0.6rem", 
+                            borderRadius: "6px", 
+                            cursor: "pointer",
+                            fontSize: "0.8rem"
+                          }}
+                        >
+                          Löschen
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
