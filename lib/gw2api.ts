@@ -46,6 +46,43 @@ export async function syncAllGuildRosters() {
         });
       }
 
+      // 2.5 Detect Renames
+      // If a member is in the API but not in our DB, and we have a member in our DB with the EXACT SAME 
+      // join date who is missing from the API roster, we can confidently assume they changed their name.
+      for (const [apiName, apiData] of apiMemberMap) {
+        const existingByName = await db.collection("members").where("accountName", "==", apiName).limit(1).get();
+        if (existingByName.empty) {
+          const joinDate = new Date(apiData.joined);
+          const possibleRenames = await db.collection("members").where("joinedAt", "==", joinDate).get();
+          
+          let renamedDoc = null;
+          for (const doc of possibleRenames.docs) {
+            const oldName = doc.data().accountName;
+            // The old name must NOT be in the current API roster
+            if (!apiMemberMap.has(oldName)) {
+              // The old name must be a member of THIS guild currently
+              const gIds = doc.data().guildIds || [];
+              if (gIds.includes(guild.id)) {
+                renamedDoc = doc;
+                break;
+              }
+            }
+          }
+
+          if (renamedDoc) {
+            const oldName = renamedDoc.data().accountName;
+            await renamedDoc.ref.update({ accountName: apiName });
+            await renamedDoc.ref.collection("history").add({
+              eventType: "RENAME",
+              oldValue: oldName,
+              newValue: apiName,
+              timestamp: new Date()
+            });
+            syncLogs.push(`Rename detected: ${oldName} -> ${apiName}`);
+          }
+        }
+      }
+
       // 3. Find members in DB who are supposedly in this guild
       // We use the new 'guildIds' string array field for reliable querying
       const membersInGuildSnapshot = await db.collection("members").where("guildIds", "array-contains", guild.id).get();
