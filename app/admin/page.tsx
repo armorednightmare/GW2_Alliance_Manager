@@ -1,5 +1,5 @@
 export const dynamic = 'force-dynamic';
-import { saveThemeSettings, saveBackupSettings } from "./actions";
+import { saveThemeSettings, saveSyncSettings, saveBackupSettings } from "./actions";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -133,15 +133,34 @@ export default async function AdminPage() {
           {/* Global settings only for Higher Staff */}
           {isHigherStaff(user) && (
             <div style={{ marginTop: "2rem", paddingTop: "1.5rem", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-              <div style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
+              <form action={saveSyncSettings} style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
                 <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem" }}>⚙️ Background Auto-Sync</h3>
                 <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.8 }}>
                   <strong>Letzter erfolgreicher Sync:</strong> {settings?.lastSync?.toDate ? settings.lastSync.toDate().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' }) : 'Noch nie'}
                 </p>
-                <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.8rem", opacity: 0.6 }}>
-                  Das Intervall wird nun extern (z.B. über Google Cloud Scheduler) gesteuert, indem <code style={{ background: "rgba(0,0,0,0.3)", padding: "2px 4px", borderRadius: "3px" }}>/api/cron/sync</code> aufgerufen wird.
+                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "1rem" }}>
+                  <select 
+                    name="apiSyncInterval" 
+                    defaultValue={settings?.apiSyncInterval || 10}
+                    style={{ padding: "0.4rem 0.6rem", background: "rgba(255,255,255,0.1)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px" }}
+                  >
+                    <option value="10">Alle 10 Minuten (Standard)</option>
+                    <option value="20">Alle 20 Minuten</option>
+                    <option value="30">Alle 30 Minuten</option>
+                    <option value="60">Alle 1 Stunde</option>
+                    <option value="120">Alle 2 Stunden</option>
+                    <option value="240">Alle 4 Stunden</option>
+                    <option value="480">Alle 8 Stunden</option>
+                    <option value="720">Alle 12 Stunden</option>
+                    <option value="1440">Alle 24 Stunden</option>
+                  </select>
+                  <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>Mindest-Abstand zwischen Roster-Syncs</span>
+                </div>
+                <button type="submit" className="btn-primary" style={{ marginTop: "1rem", padding: "0.5rem 1.5rem" }}>Sync-Intervall Speichern</button>
+                <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
+                  Hinweis: Der Cloud Scheduler muss auf mindestens das gleiche Intervall (z.B. <code style={{ background: "rgba(0,0,0,0.3)", padding: "2px 4px", borderRadius: "3px" }}>*/10 * * * *</code>) eingestellt sein.
                 </p>
-              </div>
+              </form>
             </div>
           )}
 

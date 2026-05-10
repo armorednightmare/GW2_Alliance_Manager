@@ -36,11 +36,29 @@ export async function GET(request: Request) {
   }
 
   try {
-    const logs = await syncAllGuildRosters();
     const { db } = await import("@/lib/firebase-admin");
     const settingsDoc = await db.collection("settings").doc("system").get();
     const settings = settingsDoc.exists ? settingsDoc.data() : {};
-    
+
+    // Check Sync Interval
+    const apiSyncInterval = settings?.apiSyncInterval || 10;
+    const lastSyncDate = settings?.lastSync?.toDate ? settings.lastSync.toDate() : null;
+    let shouldSync = true;
+
+    if (lastSyncDate) {
+      const minutesSinceLastSync = (Date.now() - lastSyncDate.getTime()) / (1000 * 60);
+      // We use a small buffer (0.5 mins) to account for slight cron timing variations
+      if (minutesSinceLastSync < (apiSyncInterval - 0.5)) {
+        shouldSync = false;
+      }
+    }
+
+    let logs: string[] = [];
+    if (shouldSync) {
+      logs = await syncAllGuildRosters();
+      await db.collection("settings").doc("system").set({ lastSync: new Date() }, { merge: true });
+    }
+
     // Trigger Backup if due
     let backupTriggered = false;
     const schedule = settings?.backupCronSchedule || "0 3 * * 0";
@@ -63,8 +81,13 @@ export async function GET(request: Request) {
       }
     }
 
-    await db.collection("settings").doc("system").set({ lastSync: new Date() }, { merge: true });
-    return NextResponse.json({ success: true, changes: logs.length, backupTriggered, logs });
+    return NextResponse.json({ 
+      success: true, 
+      syncRan: shouldSync,
+      changes: logs.length, 
+      backupTriggered, 
+      logs 
+    });
   } catch(e: any) {
     return NextResponse.json({ success: false, error: e.message }, { status: 500 });
   }
