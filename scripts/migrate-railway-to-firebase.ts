@@ -74,6 +74,7 @@ async function migrate() {
         manualRole: m.manualRole,
         invitedBy: m.invitedBy,
         guilds: guilds,
+        guildIds: guilds.map((g: any) => g.id),
         joinedAt: m.joinedAt,
         lastSeenAt: m.lastSeenAt,
         createdAt: m.createdAt || new Date(),
