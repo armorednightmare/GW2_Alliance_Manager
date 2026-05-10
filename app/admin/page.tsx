@@ -136,7 +136,7 @@ export default async function AdminPage() {
               <div style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
                 <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem" }}>⚙️ Background Auto-Sync</h3>
                 <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.8 }}>
-                  <strong>Letzter erfolgreicher Sync:</strong> {settings?.lastSync?.toDate ? settings.lastSync.toDate().toLocaleString('de-DE') : 'Noch nie'}
+                  <strong>Letzter erfolgreicher Sync:</strong> {settings?.lastSync?.toDate ? settings.lastSync.toDate().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' }) : 'Noch nie'}
                 </p>
                 <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.8rem", opacity: 0.6 }}>
                   Das Intervall wird nun extern (z.B. über Google Cloud Scheduler) gesteuert, indem <code style={{ background: "rgba(0,0,0,0.3)", padding: "2px 4px", borderRadius: "3px" }}>/api/cron/sync</code> aufgerufen wird.
