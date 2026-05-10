@@ -681,8 +681,8 @@ export async function analyzeMemberImport(formData: FormData, manualMapping?: Re
 
       // 6. Secondary Guild (Check ALL memberships)
       const isAlreadyInGuild = (existing.guilds || []).some((mg: any) => 
-        isSame(mg.guild?.name, excelData.guildName, true) || 
-        isSame(mg.guild?.tag, excelData.guildName, true)
+        isSame(mg.name, excelData.guildName, true) || 
+        isSame(mg.tag, excelData.guildName, true)
       );
 
       if (excelData.guildName && !isAlreadyInGuild) {

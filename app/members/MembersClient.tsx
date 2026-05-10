@@ -6,8 +6,11 @@ import "./Members.css";
 // Basic type matching Firestore query response
 // Basic type matching Firestore query response
 type MemberGuild = {
-  guild: { name: string, tag: string, isAllianceGuild: boolean };
+  id: string;
+  name: string;
+  tag: string;
   rank: string;
+  isAllianceGuild?: boolean;
 };
 
 type MemberWithGuilds = {
@@ -33,8 +36,8 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
     const guildsMap = new Map<string, string>(); // Tag -> Name
     initialMembers.forEach(m => {
       m.guilds?.forEach(mg => {
-        if (mg.guild?.tag) {
-          guildsMap.set(mg.guild.tag, mg.guild.name || mg.guild.tag);
+        if (mg.tag) {
+          guildsMap.set(mg.tag, mg.name || mg.tag);
         }
       });
     });
@@ -59,7 +62,7 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
 
     if (guildFilter !== "ALL") {
       filtered = filtered.filter(m => 
-        m.guilds?.some(mg => mg.guild?.tag === guildFilter)
+        m.guilds?.some(mg => mg.tag === guildFilter)
       );
     }
 
@@ -69,8 +72,8 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
         m.accountName.toLowerCase().includes(s) || 
         (m.invitedBy && m.invitedBy.toLowerCase().includes(s)) ||
         m.guilds.some(mg => 
-          mg.guild?.name?.toLowerCase().includes(s) || 
-          mg.guild?.tag?.toLowerCase().includes(s) || 
+          mg.name?.toLowerCase().includes(s) || 
+          mg.tag?.toLowerCase().includes(s) || 
           mg.rank.toLowerCase().includes(s)
         ) ||
         (m.manualRole && m.manualRole.toLowerCase().includes(s))
@@ -81,8 +84,8 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
       let valA: any, valB: any;
       if (sortField === "guildtag") {
         // Sort by the first guild tag found
-        valA = a.guilds?.[0]?.guild?.tag || "";
-        valB = b.guilds?.[0]?.guild?.tag || "";
+        valA = a.guilds?.[0]?.tag || "";
+        valB = b.guilds?.[0]?.tag || "";
       } else {
         valA = a[sortField];
         valB = b[sortField];
@@ -167,9 +170,9 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.85rem' }}>
                       {m.guilds?.map((mg, idx) => (
-                        <div key={idx} style={{ opacity: mg.guild?.isAllianceGuild ? 1 : 0.8 }}>
-                          <span style={{ fontWeight: mg.guild?.isAllianceGuild ? 'bold' : 'normal' }}>
-                            [{mg.guild?.tag || '???'}]
+                        <div key={idx} style={{ opacity: mg.isAllianceGuild ? 1 : 0.8 }}>
+                          <span style={{ fontWeight: mg.isAllianceGuild ? 'bold' : 'normal' }}>
+                            [{mg.tag || '???'}]
                           </span>
                           <span style={{ marginLeft: '6px', opacity: 0.7 }}>{mg.rank}</span>
                         </div>

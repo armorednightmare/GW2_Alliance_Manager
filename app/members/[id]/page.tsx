@@ -124,8 +124,8 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                 borderLeft: mg.isAllianceGuild ? '3px solid var(--accent-color)' : 'none'
               }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <strong>{mg.guild?.name || mg.name} [{mg.guild?.tag || mg.tag}] {mg.isManual && '(Manuell)'}</strong>
-                  {(mg.guild?.isManual || mg.isManual) && hasEditPerms && (
+                  <strong>{mg.name} [{mg.tag}] {mg.isManual && '(Manuell)'}</strong>
+                  {mg.isManual && hasEditPerms && (
                     <form action={removeMemberFromManualGuild}>
                       <input type="hidden" name="memberGuildId" value={mg.id} />
                       <button type="submit" style={{ background: 'transparent', border: 'none', color: '#e74c3c', cursor: 'pointer', fontSize: '1.2rem'}} title="Entfernen">

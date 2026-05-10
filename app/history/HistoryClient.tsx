@@ -144,7 +144,7 @@ export default function HistoryClient({ initialHistory, initialTotal }: { initia
                   <td style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
                     <strong>{h.member?.accountName || "Unbekannt"}</strong>
                     {h.member?.guilds?.map((mg: any) => (
-                      <span key={mg.id} style={{ opacity: 0.6, marginLeft: "5px" }}>[{mg.guild.tag}]</span>
+                      <span key={mg.id} style={{ opacity: 0.6, marginLeft: "5px" }}>[{mg.tag}]</span>
                     ))}
                   </td>
                   <td style={{ padding: "1rem", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
