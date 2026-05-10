@@ -38,8 +38,33 @@ export async function GET(request: Request) {
   try {
     const logs = await syncAllGuildRosters();
     const { db } = await import("@/lib/firebase-admin");
+    const settingsDoc = await db.collection("settings").doc("system").get();
+    const settings = settingsDoc.exists ? settingsDoc.data() : {};
+    
+    // Trigger Backup if due
+    let backupTriggered = false;
+    const schedule = settings?.backupCronSchedule || "0 3 * * 0";
+    if (schedule !== "DISABLED") {
+      const lastBackupDate = settings?.lastBackup?.toDate ? settings.lastBackup.toDate() : null;
+      let shouldBackup = !lastBackupDate;
+      
+      if (lastBackupDate) {
+        const hoursSinceLast = (Date.now() - lastBackupDate.getTime()) / (1000 * 60 * 60);
+        if (schedule === "0 3 * * *") shouldBackup = hoursSinceLast >= 23.5; // Daily
+        else if (schedule === "0 3 * * 0") shouldBackup = hoursSinceLast >= (7 * 24 - 1); // Weekly
+        else if (schedule === "0 3 1 * *") shouldBackup = hoursSinceLast >= (28 * 24 - 1); // Monthly
+      }
+      
+      if (shouldBackup) {
+        const { runDatabaseBackup } = await import("@/lib/backup");
+        await runDatabaseBackup();
+        await db.collection("settings").doc("system").set({ lastBackup: new Date() }, { merge: true });
+        backupTriggered = true;
+      }
+    }
+
     await db.collection("settings").doc("system").set({ lastSync: new Date() }, { merge: true });
-    return NextResponse.json({ success: true, changes: logs.length, logs });
+    return NextResponse.json({ success: true, changes: logs.length, backupTriggered, logs });
   } catch(e: any) {
     return NextResponse.json({ success: false, error: e.message }, { status: 500 });
   }
