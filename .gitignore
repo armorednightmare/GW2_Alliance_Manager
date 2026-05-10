@@ -35,3 +35,24 @@ yarn-error.log*
 # Firebase
 *-debug.log
 .next_firebase/
+
+# Backups & Scratch
+*.json
+!package.json
+!package-lock.json
+!firestore.indexes.json
+!firebase.json
+!next.config.json
+backup.json
+gw2_alliance_firestore_backup_*.json
+
+# Scripts & Maintenance
+*.js
+!next.config.js
+!jest.config.js
+!postcss.config.js
+!tailwind.config.js
+
+# Allow source directories
+!lib/
+!scripts/

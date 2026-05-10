@@ -18,10 +18,11 @@ interface GW2LogEntry {
 
 export async function syncAllGuildRosters() {
   const guildsSnapshot = await db.collection("guilds").where("leaderToken", "!=", null).get();
+  const allGuilds = guildsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+  const allianceGuildIds = allGuilds.filter(g => g.isAllianceGuild).map(g => g.id);
   const syncLogs: string[] = [];
 
-  for (const guildDoc of guildsSnapshot.docs) {
-    const guild = { id: guildDoc.id, ...guildDoc.data() } as any;
+  for (const guild of allGuilds) {
     if (!guild.leaderToken) continue;
 
     try {
@@ -100,6 +101,15 @@ export async function syncAllGuildRosters() {
             updateData.status = "INACTIVE_LEFT";
             updateData.isAllianceMember = false;
             updateData.wvwMember = false;
+          } else {
+            // Recalculate isAllianceMember (maybe they left the ONLY alliance guild they were in, but stayed in a casual guild)
+            const isStillInAlliance = remainingGuildIds.some((gId: string) => allianceGuildIds.includes(gId));
+            if (!isStillInAlliance && member.isAllianceMember) {
+              updateData.isAllianceMember = false;
+              updateData.wvwMember = false;
+              // Optional: You could also set status = "INACTIVE_LEFT" here if you only want to track people in the alliance, 
+              // but keeping them ACTIVE for their casual guild is fine since we filter views by isAllianceMember.
+            }
           }
 
           await memberDoc.ref.update(updateData);
