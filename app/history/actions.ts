@@ -13,8 +13,9 @@ export async function fetchHistoryLogs(page: number, limit: number, search: stri
 
   if (visibility.none) return { data: [], total: 0 };
 
-  // Note: Increased limit to 1000 to show more history, using optimized member fetching.
-  const snapshot = await db.collectionGroup("history").orderBy("timestamp", "desc").limit(1000).get();
+  // Note: Limit set to 200 to protect Firebase Read Quota (50k/day free).
+  // In-memory filtering means we cannot fetch the entire database without huge costs.
+  const snapshot = await db.collectionGroup("history").orderBy("timestamp", "desc").limit(200).get();
   
   // Optimize: Fetch members once instead of for every history event
   const uniqueMemberIds = Array.from(new Set(snapshot.docs.map(doc => doc.ref.parent.parent?.id).filter(Boolean))) as string[];

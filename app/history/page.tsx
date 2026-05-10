@@ -26,8 +26,8 @@ export default async function HistoryPage() {
     );
   }
 
-  // Fetch from collectionGroup - increased limit to show more history
-  let query = db.collectionGroup("history").orderBy("timestamp", "desc").limit(1000);
+  // Fetch from collectionGroup - limit set to 200 to protect Firebase read quotas
+  let query = db.collectionGroup("history").orderBy("timestamp", "desc").limit(200);
   
   const snapshot = await query.get();
   
