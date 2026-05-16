@@ -18,6 +18,8 @@ model SystemSettings {
   apiSyncInterval Int     @default(60) // in minutes
   backupCronSchedule String @default("0 3 * * 0")
   
+  allowGuildLeadersToEditRecruits Boolean @default(false)
+
   backupRefreshToken String? // Encrypted 
   backupEmail        String? // To show which account is linked
 }

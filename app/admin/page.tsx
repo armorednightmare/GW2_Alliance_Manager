@@ -125,6 +125,22 @@ export default async function AdminPage() {
                     />
                     <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>Auto-Sync Intervall (Minuten)</span>
                   </div>
+                  
+                  <div style={{ marginTop: "0.5rem", paddingTop: "1rem", borderTop: "1px dashed rgba(255,255,255,0.1)" }}>
+                    <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                      <input 
+                        type="checkbox" 
+                        name="allowGuildLeadersToEditRecruits" 
+                        value="true" 
+                        defaultChecked={settings?.allowGuildLeadersToEditRecruits === true} 
+                      />
+                      <span>Gildenleiter dürfen Rekruten (StartingRole) der Allianz bearbeiten</span>
+                    </label>
+                    <p style={{ margin: "0.5rem 0 0 1.5rem", fontSize: "0.8rem", opacity: 0.7 }}>
+                      Erlaubt es regionalen Leitern, Profile von Mitgliedern anzupassen, die aktuell den Standard-Rang in der Hauptgilde haben.
+                    </p>
+                  </div>
+                  
                   <button type="submit" className="btn-primary" style={{ width: "fit-content", padding: "0.5rem 2rem" }}>Sync-Einstellungen Speichern</button>
                 </div>
               </form>

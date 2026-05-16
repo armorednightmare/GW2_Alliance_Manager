@@ -79,15 +79,16 @@ export async function saveSyncSettings(data: FormData) {
   await requireAllianceLeader();
   const existing = await prisma.systemSettings.findFirst();
   const apiSyncInterval = parseInt(data.get("apiSyncInterval") as string) || existing?.apiSyncInterval || 60;
+  const allowGuildLeadersToEditRecruits = data.get("allowGuildLeadersToEditRecruits") === "true";
 
   if (existing) {
     await prisma.systemSettings.update({
       where: { id: existing.id },
-      data: { apiSyncInterval },
+      data: { apiSyncInterval, allowGuildLeadersToEditRecruits },
     });
   } else {
     await prisma.systemSettings.create({
-      data: { apiSyncInterval, allianceName: "Alliance", colorPrimary: "#2c3e50", colorAccent: "#27ae60", colorBg: "#121212" },
+      data: { apiSyncInterval, allowGuildLeadersToEditRecruits, allianceName: "Alliance", colorPrimary: "#2c3e50", colorAccent: "#27ae60", colorBg: "#121212" },
     });
   }
   revalidatePath("/", "layout");
