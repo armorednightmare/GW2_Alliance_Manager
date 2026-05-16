@@ -133,7 +133,8 @@ export async function removeMemberFromManualGuild(data: FormData) {
   });
 
   await memberRef.collection("history").add({
-      eventType: "LEFT",
+      eventType: "KICKED",
+      description: `Manuell entfernt (durch ${(session?.user as any)?.name || "Admin"})`,
       newValue: `${guildToRemove.name} [${guildToRemove.tag}] (Manuell)`,
       timestamp: new Date()
   });

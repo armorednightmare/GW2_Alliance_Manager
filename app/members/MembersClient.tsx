@@ -57,7 +57,11 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
     let filtered = initialMembers || [];
 
     if (statusFilter !== "ALL") {
-      filtered = filtered.filter(m => m.status === statusFilter);
+      if (statusFilter === "INACTIVE_LEFT") {
+        filtered = filtered.filter(m => m.status === "INACTIVE_LEFT" || m.status === "INACTIVE_KICKED");
+      } else {
+        filtered = filtered.filter(m => m.status === statusFilter);
+      }
     }
 
     if (guildFilter !== "ALL") {
@@ -124,7 +128,7 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
         >
           <option value="ALL" style={{ background: "#1e1e1e" }}>Alle Status</option>
           <option value="ACTIVE" style={{ background: "#1e1e1e" }}>Nur Aktive</option>
-          <option value="INACTIVE_LEFT" style={{ background: "#1e1e1e" }}>Nur Inaktive (Verlassen)</option>
+          <option value="INACTIVE_LEFT" style={{ background: "#1e1e1e" }}>Nur Inaktive (Verlassen/Gekickt)</option>
         </select>
         
         <select

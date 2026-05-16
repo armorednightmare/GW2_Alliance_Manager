@@ -56,7 +56,7 @@ export async function fetchHistoryLogs(page: number, limit: number, search: stri
         const eventType = h.eventType || h.type;
         const isComment = eventType === "COMMENT_ADDED" || eventType === "COMMENT_CHANGED";
         if (isComment) return false;
-        const isAllianceRelevant = h.member.isAllianceMember || h.member.status === "INACTIVE_LEFT";
+        const isAllianceRelevant = h.member.isAllianceMember || h.member.status === "INACTIVE_LEFT" || h.member.status === "INACTIVE_KICKED";
         if (!isAllianceRelevant) return false;
         return ["RANK_CHANGE", "WVW_STATUS_CHANGE", "JOINED", "LEFT"].includes(eventType);
     });

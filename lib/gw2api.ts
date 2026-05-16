@@ -13,6 +13,7 @@ interface GW2LogEntry {
   type: string;
   user?: string;
   invited_by?: string;
+  kicked_by?: string;
   // Others omitted
 }
 
@@ -35,14 +36,17 @@ export async function syncAllGuildRosters() {
       const apiMembers: GW2Member[] = await rosterRes.json();
       const apiMemberMap = new Map(apiMembers.map(m => [m.name, m]));
 
-      // 2. Fetch Logs (to find invite info)
+      // 2. Fetch Logs (to find invite info & kicks)
       const logsRes = await fetch(`https://api.guildwars2.com/v2/guild/${guild.id}/log?access_token=${guild.leaderToken}`);
       const inviterMap = new Map<string, string>();
+      const kickMap = new Map<string, string>();
       if (logsRes.ok) {
         const logs: GW2LogEntry[] = await logsRes.json();
         logs.reverse().forEach(log => {
           if (log.type === 'invited' && log.user && log.invited_by) {
             inviterMap.set(log.user, log.invited_by);
+          } else if (log.type === 'kick' && log.user && log.kicked_by) {
+            kickMap.set(log.user, log.kicked_by);
           }
         });
       }
@@ -96,9 +100,11 @@ export async function syncAllGuildRosters() {
           const remainingGuilds = (member.guilds || []).filter((g: any) => g.id !== guild.id);
           const remainingGuildIds = remainingGuilds.map((g: any) => g.id);
           const updateData: any = { guilds: remainingGuilds, guildIds: remainingGuildIds };
+          
+          const kicker = kickMap.get(member.accountName);
 
           if (remainingGuilds.length === 0) {
-            updateData.status = "INACTIVE_LEFT";
+            updateData.status = kicker ? "INACTIVE_KICKED" : "INACTIVE_LEFT";
             updateData.isAllianceMember = false;
             updateData.wvwMember = false;
           } else {
@@ -113,12 +119,18 @@ export async function syncAllGuildRosters() {
           }
 
           await memberDoc.ref.update(updateData);
+          
+          const eventType = kicker ? "KICKED" : "LEFT";
+          const eventDesc = kicker 
+            ? `Aus ${guild.name} [${guild.tag}] entfernt (kicked by ${kicker})` 
+            : `${guild.name} [${guild.tag}] verlassen`;
+
           await memberDoc.ref.collection("history").add({
-            eventType: "LEFT",
-            description: `${guild.name} [${guild.tag}] verlassen`,
+            eventType: eventType,
+            description: eventDesc,
             timestamp: new Date()
           });
-          syncLogs.push(`${member.accountName} left ${guild.name} [${guild.tag}]`);
+          syncLogs.push(`${member.accountName} ${kicker ? 'was kicked from' : 'left'} ${guild.name} [${guild.tag}]`);
         } else {
           // Still in this guild - Check for rank changes
           const guildMembership = member.guilds.find((g: any) => g.id === guild.id);

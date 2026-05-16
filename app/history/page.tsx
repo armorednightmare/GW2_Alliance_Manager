@@ -84,7 +84,7 @@ export default async function HistoryPage() {
         const isComment = h.type === "COMMENT_ADDED" || h.type === "COMMENT_CHANGED";
         if (isComment) return false;
 
-        const isAllianceRelevant = h.member.isAllianceMember || h.member.status === "INACTIVE_LEFT";
+        const isAllianceRelevant = h.member.isAllianceMember || h.member.status === "INACTIVE_LEFT" || h.member.status === "INACTIVE_KICKED";
         if (!isAllianceRelevant) return false;
 
         const isPublicEvent = ["RANK_CHANGE", "WVW_STATUS_CHANGE", "JOINED", "LEFT"].includes(h.type);
