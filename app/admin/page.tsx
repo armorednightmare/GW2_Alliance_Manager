@@ -163,7 +163,21 @@ export default async function AdminPage() {
                   </select>
                   <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>Mindest-Abstand zwischen Roster-Syncs</span>
                 </div>
-                <button type="submit" className="btn-primary" style={{ marginTop: "1rem", padding: "0.5rem 1.5rem" }}>Sync-Intervall Speichern</button>
+                <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px dashed rgba(255,255,255,0.1)" }}>
+                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
+                    <input 
+                      type="checkbox" 
+                      name="allowGuildLeadersToEditRecruits" 
+                      value="true" 
+                      defaultChecked={settings?.allowGuildLeadersToEditRecruits === true} 
+                    />
+                    <span>Gildenleiter dürfen Rekruten (StartingRole) der Allianz bearbeiten</span>
+                  </label>
+                  <p style={{ margin: "0.5rem 0 0 1.5rem", fontSize: "0.8rem", opacity: 0.7 }}>
+                    Erlaubt es regionalen Leitern, Profile von Mitgliedern anzupassen, die aktuell den Standard-Rang in der Hauptgilde haben.
+                  </p>
+                </div>
+                <button type="submit" className="btn-primary" style={{ marginTop: "1.5rem", padding: "0.5rem 1.5rem" }}>Einstellungen Speichern</button>
                 <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
                   Hinweis: Der Cloud Scheduler muss auf mindestens das gleiche Intervall (z.B. <code style={{ background: "rgba(0,0,0,0.3)", padding: "2px 4px", borderRadius: "3px" }}>*/10 * * * *</code>) eingestellt sein.
                 </p>

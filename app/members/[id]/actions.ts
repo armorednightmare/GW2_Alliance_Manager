@@ -18,7 +18,10 @@ export async function updateMemberComment(data: FormData) {
 
   const memberGuildIds = (oldMem.guilds || []).map((g: any) => g.id);
 
-  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember)) {
+  const settingsDoc = await db.collection("settings").doc("system").get();
+  const allowRecruitEdits = settingsDoc.data()?.allowGuildLeadersToEditRecruits === true;
+
+  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember, oldMem.isAllianceRecruit, allowRecruitEdits)) {
     throw new Error("Nicht autorisiert, dieses Mitglied zu bearbeiten.");
   }
 
@@ -77,7 +80,10 @@ export async function addMemberToManualGuild(data: FormData) {
   const oldMem = memberDoc.data() as any;
   const memberGuildIds = (oldMem.guilds || []).map((g: any) => g.id);
 
-  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember)) {
+  const settingsDoc = await db.collection("settings").doc("system").get();
+  const allowRecruitEdits = settingsDoc.data()?.allowGuildLeadersToEditRecruits === true;
+
+  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember, oldMem.isAllianceRecruit, allowRecruitEdits)) {
     throw new Error("Nicht autorisiert.");
   }
 
@@ -127,7 +133,10 @@ export async function removeMemberFromManualGuild(data: FormData) {
   const memberData = memberDoc.data() as any;
   const memberGuildIds = (memberData.guilds || []).map((g: any) => g.id);
 
-  if (!canEditMember(session?.user as any, memberGuildIds, memberData.isAllianceMember, memberData.leftAt, memberData.pastGuildIds, memberData.wasAllianceMember)) {
+  const settingsDoc = await db.collection("settings").doc("system").get();
+  const allowRecruitEdits = settingsDoc.data()?.allowGuildLeadersToEditRecruits === true;
+
+  if (!canEditMember(session?.user as any, memberGuildIds, memberData.isAllianceMember, memberData.leftAt, memberData.pastGuildIds, memberData.wasAllianceMember, memberData.isAllianceRecruit, allowRecruitEdits)) {
     throw new Error("Nicht autorisiert.");
   }
 
@@ -184,8 +193,11 @@ export async function updateDiscordName(data: FormData) {
   const linkedUserSnapshot = await db.collection("users").where("memberId", "==", memberId).limit(1).get();
   const linkedUser = linkedUserSnapshot.empty ? null : linkedUserSnapshot.docs[0];
 
+  const settingsDoc = await db.collection("settings").doc("system").get();
+  const allowRecruitEdits = settingsDoc.data()?.allowGuildLeadersToEditRecruits === true;
+
   const isMe = session?.user?.id && session.user.id === linkedUser?.id;
-  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember);
+  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember, oldMem.isAllianceRecruit, allowRecruitEdits);
 
   if (!isMe && !hasEditPerms) {
     throw new Error("Nicht autorisiert, den Discord-Namen dieses Mitglieds zu bearbeiten.");
