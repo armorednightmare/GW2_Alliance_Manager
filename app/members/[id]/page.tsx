@@ -74,7 +74,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
   if (!member.isAllianceMember) {
     if (user?.role === "ADMIN" || user?.role === "ALLIANCE_LEADER") {
       // Allowed
-    } else if (user?.role === "GUILD_LEADER" && canEditMember(user, memberGuildIds)) {
+    } else if (user?.role === "GUILD_LEADER" && canEditMember(user, memberGuildIds, member.isAllianceMember)) {
       // Allowed
     } else {
       // Restricted
@@ -99,7 +99,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
   const sanitizedManualGuilds = sanitizeData(manualGuilds);
 
   const isMe = user?.id && user.id === member.linkedUser?.id;
-  const hasEditPerms = canEditMember(user, memberGuildIds);
+  const hasEditPerms = canEditMember(user, memberGuildIds, member.isAllianceMember);
   const effectiveDiscordName = member.customDiscordName || member.linkedUser?.name || null;
 
   return (
@@ -186,7 +186,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
               </form>
             )}
           </div>
-          {canEditMember(user, memberGuildIds) && (
+          {canEditMember(user, memberGuildIds, member.isAllianceMember) && (
             <>
               <h3>Verwaltung</h3>
               <form action={updateMemberComment} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -247,7 +247,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                 const isCommentEvent = item.eventType === "COMMENT_ADDED" || item.eventType === "COMMENT_CHANGED";
                 if (isCommentEvent) {
                   // Only show comment history to people who can actually edit/see comments
-                  return canEditMember(user, memberGuildIds);
+                  return canEditMember(user, memberGuildIds, member.isAllianceMember);
                 }
                 return true;
               })

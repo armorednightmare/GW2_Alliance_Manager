@@ -19,7 +19,7 @@ export async function updateMemberComment(data: FormData) {
   const memberGuildIds = (oldMem.guilds || []).map((g: any) => g.id);
 
   // Security Check
-  if (!canEditMember(session?.user as any, memberGuildIds)) {
+  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember)) {
     throw new Error("Nicht autorisiert, dieses Mitglied zu bearbeiten.");
   }
 
@@ -60,7 +60,14 @@ export async function addMemberToManualGuild(data: FormData) {
   const guildId = data.get("guildId") as string;
   const rank = data.get("rank") as string || "Member";
 
-  if (!canEditMember(session?.user as any, [])) {
+  const memberRef = db.collection("members").doc(memberId);
+  const memberDoc = await memberRef.get();
+  if (!memberDoc.exists) throw new Error("Mitglied nicht gefunden.");
+  
+  const oldMem = memberDoc.data() as any;
+  const memberGuildIds = (oldMem.guilds || []).map((g: any) => g.id);
+
+  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember)) {
     throw new Error("Nicht autorisiert.");
   }
 
@@ -70,9 +77,7 @@ export async function addMemberToManualGuild(data: FormData) {
   }
   const guild = guildDoc.data()!;
 
-  const memberRef = db.collection("members").doc(memberId);
-  const memberDoc = await memberRef.get();
-  if (!memberDoc.exists) throw new Error("Mitglied nicht gefunden.");
+  // memberRef already retrieved above
   
   const existingGuilds = memberDoc.data()?.guilds || [];
   
@@ -105,15 +110,17 @@ export async function removeMemberFromManualGuild(data: FormData) {
   const memberId = data.get("memberId") as string;
   const guildId = data.get("guildId") as string;
 
-  if (!canEditMember(session?.user as any, [])) {
-    throw new Error("Nicht autorisiert.");
-  }
-
   const memberRef = db.collection("members").doc(memberId);
   const memberDoc = await memberRef.get();
   if (!memberDoc.exists) throw new Error("Mitglied nicht gefunden.");
   
   const memberData = memberDoc.data() as any;
+  const memberGuildIds = (memberData.guilds || []).map((g: any) => g.id);
+
+  if (!canEditMember(session?.user as any, memberGuildIds, memberData.isAllianceMember)) {
+    throw new Error("Nicht autorisiert.");
+  }
+
   const guildToRemove = (memberData.guilds || []).find((g: any) => g.id === guildId);
   
   if (!guildToRemove) throw new Error("Zuordnung nicht gefunden.");
@@ -156,7 +163,7 @@ export async function updateDiscordName(data: FormData) {
   const linkedUser = linkedUserSnapshot.empty ? null : linkedUserSnapshot.docs[0];
 
   const isMe = session?.user?.id && session.user.id === linkedUser?.id;
-  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds);
+  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember);
 
   if (!isMe && !hasEditPerms) {
     throw new Error("Nicht autorisiert, den Discord-Namen dieses Mitglieds zu bearbeiten.");
