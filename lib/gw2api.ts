@@ -13,6 +13,7 @@ interface GW2LogEntry {
   type: string;
   user?: string;
   invited_by?: string;
+  kicked_by?: string;
   // Others omitted
 }
 
@@ -36,15 +37,19 @@ export async function syncAllGuildRosters() {
       const apiMembers: GW2Member[] = await rosterRes.json();
       const apiMemberMap = new Map(apiMembers.map(m => [m.name, m]));
 
-      // 2. Fetch Logs (to find invite info)
       const logsRes = await fetch(`https://api.guildwars2.com/v2/guild/${guild.id}/log?access_token=${guild.leaderToken}`);
       const inviterMap = new Map<string, string>();
+      const kickMap = new Map<string, string>();
+
       if (logsRes.ok) {
         const logs: GW2LogEntry[] = await logsRes.json();
-        // Process logs from oldest to newest so newest invite takes precedence if multiple exist
+        // Process logs from oldest to newest so newest action takes precedence if multiple exist
         logs.reverse().forEach(log => {
           if (log.type === 'invited' && log.user && log.invited_by) {
             inviterMap.set(log.user, log.invited_by);
+          }
+          if (log.type === 'kick' && log.user && log.kicked_by) {
+            kickMap.set(log.user, log.kicked_by);
           }
         });
       }
@@ -63,18 +68,37 @@ export async function syncAllGuildRosters() {
             where: { id: membership.id }
           });
 
+          const kicker = kickMap.get(membership.member.accountName);
+
           await prisma.memberHistory.create({
-            data: { memberId: membership.memberId, eventType: "LEFT", newValue: `${guild.name} [${guild.tag}]` }
+            data: { 
+              memberId: membership.memberId, 
+              eventType: kicker ? "KICKED" : "LEFT", 
+              description: kicker ? `Aus ${guild.name} [${guild.tag}] entfernt (durch ${kicker})` : undefined,
+              newValue: `${guild.name} [${guild.tag}]` 
+            }
           });
           syncLogs.push(`${membership.member.accountName} left ${guild.name} [${guild.tag}]`);
 
-          // If no memberships left anywhere, mark as INACTIVE_LEFT
-          const remaining = await prisma.memberGuild.count({ where: { memberId: membership.memberId } });
-          if (remaining === 0) {
+          // If no memberships left anywhere, mark as INACTIVE
+          const allGuilds = await prisma.memberGuild.findMany({ where: { memberId: membership.memberId } });
+          if (allGuilds.length === 0) {
+            const pastIds = [guild.id, ...allGuilds.map(g => g.guildId)];
+            
             await prisma.member.update({
               where: { id: membership.memberId },
-              data: { status: "INACTIVE_LEFT", isAllianceMember: false, wvwMember: false }
+              data: { 
+                status: kicker ? "INACTIVE_KICKED" : "INACTIVE_LEFT", 
+                isAllianceMember: false, 
+                wvwMember: false,
+                leftAt: new Date(),
+                pastGuildIds: pastIds,
+                wasAllianceMember: membership.member.isAllianceMember
+              }
             });
+          } else {
+             // Still in other guilds, just recalculate alliance member status
+             // (Master branch handles this at the end of sync or via other guild syncs)
           }
         } else {
           // Still in this guild - Check for rank changes

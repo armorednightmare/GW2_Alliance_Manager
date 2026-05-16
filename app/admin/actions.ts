@@ -436,9 +436,17 @@ export async function deleteGuild(guildId: string) {
   for (const mg of membersInGuild) {
     const remaining = await prisma.memberGuild.count({ where: { memberId: mg.memberId } });
     if (remaining === 0) {
+       const member = await prisma.member.findUnique({ where: { id: mg.memberId } });
        await prisma.member.update({
          where: { id: mg.memberId },
-         data: { status: "INACTIVE_LEFT", isAllianceMember: false, wvwMember: false }
+         data: { 
+           status: "INACTIVE_LEFT", 
+           isAllianceMember: false, 
+           wvwMember: false,
+           leftAt: new Date(),
+           pastGuildIds: [guildId],
+           wasAllianceMember: member?.isAllianceMember || false
+         }
        });
     }
   }

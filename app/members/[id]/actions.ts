@@ -20,7 +20,7 @@ export async function updateMemberComment(data: FormData) {
   const memberGuildIds = oldMem.guilds.map(g => g.guildId);
 
   // Security Check
-  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember)) {
+  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember)) {
     throw new Error("Nicht autorisiert, dieses Mitglied zu bearbeiten.");
   }
 
@@ -85,7 +85,7 @@ export async function addMemberToManualGuild(data: FormData) {
 
   const memberGuildIds = oldMem.guilds.map(g => g.guildId);
 
-  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember)) {
+  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember)) {
     throw new Error("Nicht autorisiert.");
   }
 
@@ -126,16 +126,32 @@ export async function removeMemberFromManualGuild(data: FormData) {
   if (!mg || !mg.guild.isManual) throw new Error("Zuordnung nicht gefunden oder nicht manuell.");
 
   const memberGuildIds = mg.member.guilds.map(g => g.guildId);
-  if (!canEditMember(session?.user as any, memberGuildIds, mg.member.isAllianceMember)) {
+  if (!canEditMember(session?.user as any, memberGuildIds, mg.member.isAllianceMember, mg.member.leftAt, mg.member.pastGuildIds, mg.member.wasAllianceMember)) {
     throw new Error("Nicht autorisiert.");
   }
 
   await prisma.memberGuild.delete({ where: { id: memberGuildId } });
 
+  const remaining = await prisma.memberGuild.count({ where: { memberId: mg.memberId } });
+  if (remaining === 0) {
+    await prisma.member.update({
+      where: { id: mg.memberId },
+      data: {
+        status: "INACTIVE_KICKED",
+        isAllianceMember: false,
+        wvwMember: false,
+        leftAt: new Date(),
+        pastGuildIds: memberGuildIds,
+        wasAllianceMember: mg.member.isAllianceMember || false
+      }
+    });
+  }
+
   await prisma.memberHistory.create({
     data: { 
       memberId: mg.memberId, 
-      eventType: "LEFT", 
+      eventType: "KICKED", 
+      description: `Manuell entfernt (durch ${(session?.user as any)?.name || "Admin"})`,
       newValue: `${mg.guild.name} [${mg.guild.tag}] (Manuell)` 
     }
   });
@@ -162,7 +178,7 @@ export async function updateDiscordName(data: FormData) {
   const memberGuildIds = oldMem.guilds.map(g => g.guildId);
 
   const isMe = session?.user?.id && session.user.id === oldMem.linkedUser?.id;
-  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember);
+  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember);
 
   if (!isMe && !hasEditPerms) {
     throw new Error("Nicht autorisiert, den Discord-Namen dieses Mitglieds zu bearbeiten.");

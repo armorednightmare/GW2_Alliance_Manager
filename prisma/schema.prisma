@@ -78,6 +78,7 @@ model Guild {
 enum MemberStatus {
   ACTIVE
   INACTIVE_LEFT
+  INACTIVE_KICKED
   FRIEND
 }
 
@@ -104,6 +105,9 @@ model Member {
   history MemberHistory[]
 
   joinedAt   DateTime?
+  leftAt     DateTime?
+  pastGuildIds String[]
+  wasAllianceMember Boolean @default(false)
   lastSeenAt DateTime? // Automated (Roster Sync)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
@@ -128,6 +132,7 @@ model MemberGuild {
 enum HistoryEventType {
   JOINED
   LEFT
+  KICKED
   RANK_CHANGE
   WVW_STATUS_CHANGE
   COMMENT_ADDED
