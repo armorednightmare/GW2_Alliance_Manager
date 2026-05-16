@@ -32,13 +32,21 @@ export function canSeeComments(user: AuthUser | null | undefined): boolean {
   return !!user && (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER" || user.role === "GUILD_LEADER");
 }
 
-export function canEditMember(user: AuthUser | null | undefined, memberGuildIds: string[]): boolean {
+export function canEditMember(user: AuthUser | null | undefined, memberGuildIds: string[], isAllianceMember: boolean): boolean {
   if (!user) return false;
-  if (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER") return true;
+  if (user.role === "ADMIN") return true;
   
-  if (user.role === "GUILD_LEADER" && user.subGuildIds) {
-    return memberGuildIds.some(id => user.subGuildIds?.includes(id));
+  const isGuildLeaderForMember = user.subGuildIds ? memberGuildIds.some(id => user.subGuildIds?.includes(id)) : false;
+
+  if (user.role === "ALLIANCE_LEADER") {
+    if (isAllianceMember) return true;
+    return isGuildLeaderForMember;
   }
+  
+  if (user.role === "GUILD_LEADER") {
+    return isGuildLeaderForMember;
+  }
+  
   return false;
 }
 

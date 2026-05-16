@@ -20,7 +20,7 @@ export async function updateMemberComment(data: FormData) {
   const memberGuildIds = oldMem.guilds.map(g => g.guildId);
 
   // Security Check
-  if (!canEditMember(session?.user as any, memberGuildIds)) {
+  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember)) {
     throw new Error("Nicht autorisiert, dieses Mitglied zu bearbeiten.");
   }
 
@@ -61,7 +61,15 @@ export async function addMemberToManualGuild(data: FormData) {
   const guildId = data.get("guildId") as string;
   const rank = data.get("rank") as string || "Member";
 
-  if (!canEditMember(session?.user as any, [])) {
+  const oldMem = await prisma.member.findUnique({ 
+    where: { id: memberId },
+    include: { guilds: { select: { guildId: true } } }
+  });
+  if (!oldMem) throw new Error("Mitglied nicht gefunden.");
+
+  const memberGuildIds = oldMem.guilds.map(g => g.guildId);
+
+  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember)) {
     throw new Error("Nicht autorisiert.");
   }
 
@@ -92,15 +100,19 @@ export async function removeMemberFromManualGuild(data: FormData) {
   const session = (await getServerSession(authOptions)) as { user: AuthUser } | null;
   const memberGuildId = data.get("memberGuildId") as string;
 
-  if (!canEditMember(session?.user as any, [])) {
-    throw new Error("Nicht autorisiert.");
-  }
-
   const mg = await prisma.memberGuild.findUnique({ 
     where: { id: memberGuildId },
-    include: { guild: true }
+    include: { 
+      guild: true,
+      member: { include: { guilds: { select: { guildId: true } } } }
+    }
   });
   if (!mg || !mg.guild.isManual) throw new Error("Zuordnung nicht gefunden oder nicht manuell.");
+
+  const memberGuildIds = mg.member.guilds.map(g => g.guildId);
+  if (!canEditMember(session?.user as any, memberGuildIds, mg.member.isAllianceMember)) {
+    throw new Error("Nicht autorisiert.");
+  }
 
   await prisma.memberGuild.delete({ where: { id: memberGuildId } });
 
@@ -134,7 +146,7 @@ export async function updateDiscordName(data: FormData) {
   const memberGuildIds = oldMem.guilds.map(g => g.guildId);
 
   const isMe = session?.user?.id && session.user.id === oldMem.linkedUser?.id;
-  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds);
+  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember);
 
   if (!isMe && !hasEditPerms) {
     throw new Error("Nicht autorisiert, den Discord-Namen dieses Mitglieds zu bearbeiten.");
