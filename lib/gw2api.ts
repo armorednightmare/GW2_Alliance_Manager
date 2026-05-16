@@ -107,6 +107,9 @@ export async function syncAllGuildRosters() {
             updateData.status = kicker ? "INACTIVE_KICKED" : "INACTIVE_LEFT";
             updateData.isAllianceMember = false;
             updateData.wvwMember = false;
+            updateData.leftAt = new Date();
+            updateData.pastGuildIds = member.guildIds || [];
+            updateData.wasAllianceMember = member.isAllianceMember || false;
           } else {
             // Recalculate isAllianceMember (maybe they left the ONLY alliance guild they were in, but stayed in a casual guild)
             const isStillInAlliance = remainingGuildIds.some((gId: string) => allianceGuildIds.includes(gId));

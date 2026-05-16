@@ -425,6 +425,9 @@ export async function deleteGuild(guildId: string) {
       updateData.status = "INACTIVE_LEFT";
       updateData.isAllianceMember = false;
       updateData.wvwMember = false;
+      updateData.leftAt = new Date();
+      updateData.pastGuildIds = (memberData.guilds || []).map((g: any) => g.id);
+      updateData.wasAllianceMember = memberData.isAllianceMember || false;
     }
     
     batch.update(doc.ref, updateData);

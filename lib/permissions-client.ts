@@ -32,14 +32,36 @@ export function canSeeComments(user: AuthUser | null | undefined): boolean {
   return !!user && (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER" || user.role === "GUILD_LEADER");
 }
 
-export function canEditMember(user: AuthUser | null | undefined, memberGuildIds: string[], isAllianceMember: boolean): boolean {
+export function canEditMember(
+  user: AuthUser | null | undefined, 
+  memberGuildIds: string[], 
+  isAllianceMember: boolean,
+  leftAt?: any,
+  pastGuildIds?: string[],
+  wasAllianceMember?: boolean
+): boolean {
   if (!user) return false;
   if (user.role === "ADMIN") return true;
-  
-  const isGuildLeaderForMember = user.subGuildIds ? memberGuildIds.some(id => user.subGuildIds?.includes(id)) : false;
+
+  let isWithinGracePeriod = false;
+  if (leftAt) {
+    const leftDate = leftAt?.toDate ? leftAt.toDate() : new Date(leftAt);
+    const diffDays = (new Date().getTime() - leftDate.getTime()) / (1000 * 3600 * 24);
+    if (diffDays <= 7) {
+      isWithinGracePeriod = true;
+    }
+  }
+
+  const effectiveGuildIds = isWithinGracePeriod && pastGuildIds && pastGuildIds.length > 0 
+    ? [...memberGuildIds, ...pastGuildIds] 
+    : memberGuildIds;
+
+  const effectiveIsAllianceMember = isAllianceMember || (isWithinGracePeriod && !!wasAllianceMember);
+
+  const isGuildLeaderForMember = user.subGuildIds ? effectiveGuildIds.some(id => user.subGuildIds?.includes(id)) : false;
 
   if (user.role === "ALLIANCE_LEADER") {
-    if (isAllianceMember) return true;
+    if (effectiveIsAllianceMember) return true;
     return isGuildLeaderForMember;
   }
   

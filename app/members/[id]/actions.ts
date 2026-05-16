@@ -18,8 +18,7 @@ export async function updateMemberComment(data: FormData) {
 
   const memberGuildIds = (oldMem.guilds || []).map((g: any) => g.id);
 
-  // Security Check
-  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember)) {
+  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember)) {
     throw new Error("Nicht autorisiert, dieses Mitglied zu bearbeiten.");
   }
 
@@ -78,7 +77,7 @@ export async function addMemberToManualGuild(data: FormData) {
   const oldMem = memberDoc.data() as any;
   const memberGuildIds = (oldMem.guilds || []).map((g: any) => g.id);
 
-  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember)) {
+  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember)) {
     throw new Error("Nicht autorisiert.");
   }
 
@@ -128,7 +127,7 @@ export async function removeMemberFromManualGuild(data: FormData) {
   const memberData = memberDoc.data() as any;
   const memberGuildIds = (memberData.guilds || []).map((g: any) => g.id);
 
-  if (!canEditMember(session?.user as any, memberGuildIds, memberData.isAllianceMember)) {
+  if (!canEditMember(session?.user as any, memberGuildIds, memberData.isAllianceMember, memberData.leftAt, memberData.pastGuildIds, memberData.wasAllianceMember)) {
     throw new Error("Nicht autorisiert.");
   }
 
@@ -138,10 +137,21 @@ export async function removeMemberFromManualGuild(data: FormData) {
 
   const remainingGuilds = memberData.guilds.filter((g: any) => g.id !== guildId);
 
-  await memberRef.update({
+  const updateData: any = {
     guilds: remainingGuilds,
     guildIds: remainingGuilds.map((g: any) => g.id)
-  });
+  };
+
+  if (remainingGuilds.length === 0) {
+    updateData.status = "INACTIVE_KICKED";
+    updateData.isAllianceMember = false;
+    updateData.wvwMember = false;
+    updateData.leftAt = new Date();
+    updateData.pastGuildIds = memberGuildIds;
+    updateData.wasAllianceMember = memberData.isAllianceMember || false;
+  }
+
+  await memberRef.update(updateData);
 
   await memberRef.collection("history").add({
       eventType: "KICKED",
@@ -175,7 +185,7 @@ export async function updateDiscordName(data: FormData) {
   const linkedUser = linkedUserSnapshot.empty ? null : linkedUserSnapshot.docs[0];
 
   const isMe = session?.user?.id && session.user.id === linkedUser?.id;
-  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember);
+  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember);
 
   if (!isMe && !hasEditPerms) {
     throw new Error("Nicht autorisiert, den Discord-Namen dieses Mitglieds zu bearbeiten.");
