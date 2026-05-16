@@ -20,7 +20,7 @@ export async function updateMemberComment(data: FormData) {
   const memberGuildIds = oldMem.guilds.map(g => g.guildId);
 
   // Security Check
-  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember)) {
+  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember, oldMem.isAllianceRecruit)) {
     throw new Error("Nicht autorisiert, dieses Mitglied zu bearbeiten.");
   }
 
@@ -85,7 +85,7 @@ export async function addMemberToManualGuild(data: FormData) {
 
   const memberGuildIds = oldMem.guilds.map(g => g.guildId);
 
-  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember)) {
+  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember, oldMem.isAllianceRecruit)) {
     throw new Error("Nicht autorisiert.");
   }
 
@@ -126,7 +126,7 @@ export async function removeMemberFromManualGuild(data: FormData) {
   if (!mg || !mg.guild.isManual) throw new Error("Zuordnung nicht gefunden oder nicht manuell.");
 
   const memberGuildIds = mg.member.guilds.map(g => g.guildId);
-  if (!canEditMember(session?.user as any, memberGuildIds, mg.member.isAllianceMember, mg.member.leftAt, mg.member.pastGuildIds, mg.member.wasAllianceMember)) {
+  if (!canEditMember(session?.user as any, memberGuildIds, mg.member.isAllianceMember, mg.member.leftAt, mg.member.pastGuildIds, mg.member.wasAllianceMember, mg.member.isAllianceRecruit)) {
     throw new Error("Nicht autorisiert.");
   }
 
@@ -178,7 +178,7 @@ export async function updateDiscordName(data: FormData) {
   const memberGuildIds = oldMem.guilds.map(g => g.guildId);
 
   const isMe = session?.user?.id && session.user.id === oldMem.linkedUser?.id;
-  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember);
+  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember, oldMem.isAllianceRecruit);
 
   if (!isMe && !hasEditPerms) {
     throw new Error("Nicht autorisiert, den Discord-Namen dieses Mitglieds zu bearbeiten.");

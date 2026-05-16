@@ -37,6 +37,16 @@ export async function syncAllGuildRosters() {
       const apiMembers: GW2Member[] = await rosterRes.json();
       const apiMemberMap = new Map(apiMembers.map(m => [m.name, m]));
 
+      let startingRoleName: string | null = null;
+      if (guild.isAllianceGuild) {
+        const ranksRes = await fetch(`https://api.guildwars2.com/v2/guild/${guild.id}/ranks?access_token=${guild.leaderToken}`);
+        if (ranksRes.ok) {
+          const ranks = await ranksRes.json();
+          const sr = ranks.find((r: any) => r.permissions.includes("StartingRole"));
+          if (sr) startingRoleName = sr.id;
+        }
+      }
+
       const logsRes = await fetch(`https://api.guildwars2.com/v2/guild/${guild.id}/log?access_token=${guild.leaderToken}`);
       const inviterMap = new Map<string, string>();
       const kickMap = new Map<string, string>();
@@ -127,6 +137,9 @@ export async function syncAllGuildRosters() {
           if (guild.isAllianceGuild) {
             updateData.isAllianceMember = true;
             updateData.wvwMember = apiData.wvw_member;
+            if (startingRoleName) {
+              updateData.isAllianceRecruit = (apiData.rank === startingRoleName);
+            }
           }
           await prisma.member.update({ where: { id: membership.memberId }, data: updateData });
         }
@@ -145,7 +158,11 @@ export async function syncAllGuildRosters() {
             status: "ACTIVE", 
             lastSeenAt: new Date(),
             ...(inviter ? { invitedBy: inviter } : {}),
-            ...(guild.isAllianceGuild ? { isAllianceMember: true, wvwMember: apiData.wvw_member } : {})
+            ...(guild.isAllianceGuild ? { 
+              isAllianceMember: true, 
+              wvwMember: apiData.wvw_member,
+              isAllianceRecruit: (startingRoleName && apiData.rank === startingRoleName) ? true : false
+            } : {})
           },
           create: {
             accountName: apiData.name,
@@ -155,6 +172,7 @@ export async function syncAllGuildRosters() {
             invitedBy: inviter || null,
             isAllianceMember: guild.isAllianceGuild,
             wvwMember: guild.isAllianceGuild ? apiData.wvw_member : false,
+            isAllianceRecruit: (guild.isAllianceGuild && startingRoleName && apiData.rank === startingRoleName) ? true : false,
           }
         });
 

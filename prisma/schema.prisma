@@ -108,6 +108,7 @@ model Member {
   leftAt     DateTime?
   pastGuildIds String[]
   wasAllianceMember Boolean @default(false)
+  isAllianceRecruit Boolean @default(false)
   lastSeenAt DateTime? // Automated (Roster Sync)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt

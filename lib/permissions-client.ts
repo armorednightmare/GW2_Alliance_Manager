@@ -38,7 +38,8 @@ export function canEditMember(
   isAllianceMember: boolean,
   leftAt?: any,
   pastGuildIds?: string[],
-  wasAllianceMember?: boolean
+  wasAllianceMember?: boolean,
+  isAllianceRecruit?: boolean
 ): boolean {
   if (!user) return false;
   if (user.role === "ADMIN") return true;
@@ -57,6 +58,7 @@ export function canEditMember(
   }
   
   if (user.role === "GUILD_LEADER") {
+    if (isAllianceRecruit) return true;
     return isGuildLeaderForMember;
   }
   
