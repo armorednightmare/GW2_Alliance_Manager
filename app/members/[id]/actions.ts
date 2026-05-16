@@ -24,29 +24,45 @@ export async function updateMemberComment(data: FormData) {
     throw new Error("Nicht autorisiert, dieses Mitglied zu bearbeiten.");
   }
 
+  // Normalize line endings and trim for comparison
+  const normalize = (val: any) => (val || "").toString().replace(/\r\n/g, "\n").trim();
+
+  const normalizedOldComment = normalize(oldMem.comment);
+  const normalizedNewComment = normalize(comment);
+  const normalizedOldRole = normalize(oldMem.manualRole);
+  const normalizedNewRole = normalize(manualRole);
+
+  const commentChanged = normalizedOldComment !== normalizedNewComment;
+  const roleChanged = normalizedOldRole !== normalizedNewRole;
+
+  if (!commentChanged && !roleChanged) return;
+
   await prisma.member.update({
     where: { id: memberId },
-    data: { comment, manualRole }
+    data: { 
+      comment: normalizedNewComment || null, 
+      manualRole: normalizedNewRole || null 
+    }
   });
 
-  if (oldMem.comment !== comment) {
+  if (commentChanged) {
     await prisma.memberHistory.create({
       data: {
         memberId: memberId,
         eventType: "COMMENT_CHANGED",
         oldValue: oldMem.comment,
-        newValue: comment
+        newValue: normalizedNewComment || null
       }
     });
   }
 
-  if (oldMem.manualRole !== manualRole) {
+  if (roleChanged) {
     await prisma.memberHistory.create({
       data: {
         memberId: memberId,
         eventType: "MANUAL_ROLE_CHANGED",
         oldValue: oldMem.manualRole,
-        newValue: manualRole
+        newValue: normalizedNewRole || null
       }
     });
   }
@@ -152,21 +168,25 @@ export async function updateDiscordName(data: FormData) {
     throw new Error("Nicht autorisiert, den Discord-Namen dieses Mitglieds zu bearbeiten.");
   }
 
+  const normalize = (val: any) => (val || "").toString().replace(/\r\n/g, "\n").trim();
+  const normalizedOldDiscord = normalize(oldMem.customDiscordName);
+  const normalizedNewDiscord = normalize(customDiscordName);
+
+  if (normalizedOldDiscord === normalizedNewDiscord) return;
+
   await prisma.member.update({
     where: { id: memberId },
-    data: { customDiscordName: customDiscordName || null }
+    data: { customDiscordName: normalizedNewDiscord || null }
   });
 
-  if (oldMem.customDiscordName !== customDiscordName) {
-    await prisma.memberHistory.create({
-      data: {
-        memberId: memberId,
-        eventType: "DISCORD_NAME_CHANGED",
-        oldValue: oldMem.customDiscordName,
-        newValue: customDiscordName || null
-      }
-    });
-  }
+  await prisma.memberHistory.create({
+    data: {
+      memberId: memberId,
+      eventType: "DISCORD_NAME_CHANGED",
+      oldValue: oldMem.customDiscordName,
+      newValue: normalizedNewDiscord || null
+    }
+  });
 
   revalidatePath(`/members/${memberId}`);
   revalidatePath(`/members`);
