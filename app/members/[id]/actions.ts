@@ -23,12 +23,25 @@ export async function updateMemberComment(data: FormData) {
     throw new Error("Nicht autorisiert, dieses Mitglied zu bearbeiten.");
   }
 
-  await memberRef.update({ comment, manualRole });
+  // Normalize line endings and trim for comparison
+  const normalize = (val: any) => (val || "").toString().replace(/\r\n/g, "\n").trim();
 
-  // Only add history if something actually changed (normalized comparison)
-  const normalizedOldComment = (oldMem.comment || "").trim();
-  const normalizedNewComment = (comment || "").trim();
-  if (normalizedOldComment !== normalizedNewComment) {
+  const normalizedOldComment = normalize(oldMem.comment);
+  const normalizedNewComment = normalize(comment);
+  const normalizedOldRole = normalize(oldMem.manualRole);
+  const normalizedNewRole = normalize(manualRole);
+
+  const commentChanged = normalizedOldComment !== normalizedNewComment;
+  const roleChanged = normalizedOldRole !== normalizedNewRole;
+
+  if (!commentChanged && !roleChanged) return;
+
+  await memberRef.update({ 
+    comment: normalizedNewComment || null, 
+    manualRole: normalizedNewRole || null 
+  });
+
+  if (commentChanged) {
     await memberRef.collection("history").add({
         eventType: "COMMENT_CHANGED",
         description: "Kommentar aktualisiert",
@@ -38,9 +51,7 @@ export async function updateMemberComment(data: FormData) {
     });
   }
 
-  const normalizedOldRole = (oldMem.manualRole || "").trim();
-  const normalizedNewRole = (manualRole || "").trim();
-  if (normalizedOldRole !== normalizedNewRole) {
+  if (roleChanged) {
     await memberRef.collection("history").add({
         eventType: "MANUAL_ROLE_CHANGED",
         description: "Manuelle Rolle geändert",
@@ -170,19 +181,21 @@ export async function updateDiscordName(data: FormData) {
     throw new Error("Nicht autorisiert, den Discord-Namen dieses Mitglieds zu bearbeiten.");
   }
 
-  await memberRef.update({ customDiscordName: customDiscordName || null });
+  const normalize = (val: any) => (val || "").toString().replace(/\r\n/g, "\n").trim();
+  const normalizedOldDiscord = normalize(oldMem.customDiscordName);
+  const normalizedNewDiscord = normalize(customDiscordName);
 
-  const normalizedOldDiscord = (oldMem.customDiscordName || "").trim();
-  const normalizedNewDiscord = (customDiscordName || "").trim();
-  if (normalizedOldDiscord !== normalizedNewDiscord) {
-    await memberRef.collection("history").add({
-        eventType: "DISCORD_NAME_CHANGED",
-        description: "Discord-Name angepasst",
-        oldValue: oldMem.customDiscordName || null,
-        newValue: normalizedNewDiscord || null,
-        timestamp: new Date()
-    });
-  }
+  if (normalizedOldDiscord === normalizedNewDiscord) return;
+
+  await memberRef.update({ customDiscordName: normalizedNewDiscord || null });
+
+  await memberRef.collection("history").add({
+      eventType: "DISCORD_NAME_CHANGED",
+      description: "Discord-Name angepasst",
+      oldValue: oldMem.customDiscordName || null,
+      newValue: normalizedNewDiscord || null,
+      timestamp: new Date()
+  });
 
   revalidatePath(`/members/${memberId}`);
   revalidatePath(`/members`);
