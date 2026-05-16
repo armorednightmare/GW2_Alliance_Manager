@@ -21,15 +21,6 @@ export default async function MembersPage() {
   let members = membersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
 
   // Filtering based on role (Previously handled by database permissions)
-  // Filtering based on role
-  const isRecentInactive = (m: any) => {
-    if (m.status !== "INACTIVE_LEFT" && m.status !== "INACTIVE_KICKED") return false;
-    if (!m.leftAt) return true; // Fallback for old data
-    const leftDate = m.leftAt?.toDate ? m.leftAt.toDate() : new Date(m.leftAt);
-    const diffDays = (new Date().getTime() - leftDate.getTime()) / (1000 * 3600 * 24);
-    return diffDays <= 7;
-  };
-
   if (!user || user.role === "WEB_MEMBER") {
      members = members.filter((m: any) => m.isAllianceMember);
   } else if (user.role === "GUILD_LEADER") {
@@ -37,10 +28,10 @@ export default async function MembersPage() {
      members = members.filter((m: any) => 
         m.isAllianceMember || 
         (m.guilds || []).some((g: any) => managedIds.includes(g.id)) ||
-        isRecentInactive(m)
+        ((m.status === "INACTIVE_LEFT" || m.status === "INACTIVE_KICKED") && (m.pastGuildIds || []).some((id: string) => managedIds.includes(id)))
      );
   } else if (user.role === "ALLIANCE_LEADER") {
-     members = members.filter((m: any) => m.isAllianceMember || isRecentInactive(m));
+     members = members.filter((m: any) => m.isAllianceMember || m.status === "INACTIVE_LEFT" || m.status === "INACTIVE_KICKED");
   }
 
   // Mask ranks for guilds the user is not part of, and serialize Timestamps

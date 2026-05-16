@@ -43,20 +43,11 @@ export function canEditMember(
   if (!user) return false;
   if (user.role === "ADMIN") return true;
 
-  let isWithinGracePeriod = false;
-  if (leftAt) {
-    const leftDate = leftAt?.toDate ? leftAt.toDate() : new Date(leftAt);
-    const diffDays = (new Date().getTime() - leftDate.getTime()) / (1000 * 3600 * 24);
-    if (diffDays <= 7) {
-      isWithinGracePeriod = true;
-    }
-  }
-
-  const effectiveGuildIds = isWithinGracePeriod && pastGuildIds && pastGuildIds.length > 0 
+  const effectiveGuildIds = pastGuildIds && pastGuildIds.length > 0 
     ? [...memberGuildIds, ...pastGuildIds] 
     : memberGuildIds;
 
-  const effectiveIsAllianceMember = isAllianceMember || (isWithinGracePeriod && !!wasAllianceMember);
+  const effectiveIsAllianceMember = isAllianceMember || !!wasAllianceMember;
 
   const isGuildLeaderForMember = user.subGuildIds ? effectiveGuildIds.some(id => user.subGuildIds?.includes(id)) : false;
 
