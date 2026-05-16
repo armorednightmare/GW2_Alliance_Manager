@@ -32,14 +32,27 @@ export function canSeeComments(user: AuthUser | null | undefined): boolean {
   return !!user && (user.role === "ADMIN" || user.role === "ALLIANCE_LEADER" || user.role === "GUILD_LEADER");
 }
 
-export function canEditMember(user: AuthUser | null | undefined, memberGuildIds: string[], isAllianceMember: boolean): boolean {
+export function canEditMember(
+  user: AuthUser | null | undefined, 
+  memberGuildIds: string[], 
+  isAllianceMember: boolean,
+  leftAt?: any,
+  pastGuildIds?: string[],
+  wasAllianceMember?: boolean
+): boolean {
   if (!user) return false;
   if (user.role === "ADMIN") return true;
   
-  const isGuildLeaderForMember = user.subGuildIds ? memberGuildIds.some(id => user.subGuildIds?.includes(id)) : false;
+  const effectiveGuildIds = pastGuildIds && pastGuildIds.length > 0 
+    ? [...memberGuildIds, ...pastGuildIds] 
+    : memberGuildIds;
+
+  const effectiveIsAllianceMember = isAllianceMember || !!wasAllianceMember;
+
+  const isGuildLeaderForMember = user.subGuildIds ? effectiveGuildIds.some(id => user.subGuildIds?.includes(id)) : false;
 
   if (user.role === "ALLIANCE_LEADER") {
-    if (isAllianceMember) return true;
+    if (effectiveIsAllianceMember) return true;
     return isGuildLeaderForMember;
   }
   
@@ -59,7 +72,9 @@ export function getMemberVisibilityFilter(user: AuthUser | null | undefined) {
       OR: [
         { isAllianceMember: true },
         { guilds: { some: { guildId: { in: ids.length > 0 ? ids : ["none"] } } } },
-        { status: "INACTIVE_LEFT" }
+        { pastGuildIds: { hasSome: ids.length > 0 ? ids : ["none"] } },
+        { status: "INACTIVE_LEFT" },
+        { status: "INACTIVE_KICKED" }
       ]
     };
   }
@@ -68,7 +83,8 @@ export function getMemberVisibilityFilter(user: AuthUser | null | undefined) {
     return {
       OR: [
         { isAllianceMember: true },
-        { status: "INACTIVE_LEFT" }
+        { status: "INACTIVE_LEFT" },
+        { status: "INACTIVE_KICKED" }
       ]
     };
   }

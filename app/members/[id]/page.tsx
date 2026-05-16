@@ -63,7 +63,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
   if (!member.isAllianceMember) {
     if (user?.role === "ADMIN" || user?.role === "ALLIANCE_LEADER") {
       // Allowed
-    } else if (user?.role === "GUILD_LEADER" && canEditMember(user, memberGuildIds, member.isAllianceMember)) {
+    } else if (user?.role === "GUILD_LEADER" && canEditMember(user, memberGuildIds, member.isAllianceMember, member.leftAt, member.pastGuildIds, member.wasAllianceMember)) {
       // Allowed
     } else {
       // Restricted
@@ -80,7 +80,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
   }
 
   const isMe = user?.id && user.id === member.linkedUser?.id;
-  const hasEditPerms = canEditMember(user, memberGuildIds, member.isAllianceMember);
+  const hasEditPerms = canEditMember(user, memberGuildIds, member.isAllianceMember, member.leftAt, member.pastGuildIds, member.wasAllianceMember);
   const effectiveDiscordName = member.customDiscordName || member.linkedUser?.name || null;
 
   return (
@@ -167,7 +167,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
               </form>
             )}
           </div>
-          {canEditMember(user, memberGuildIds, member.isAllianceMember) && (
+          {canEditMember(user, memberGuildIds, member.isAllianceMember, member.leftAt, member.pastGuildIds, member.wasAllianceMember) && (
             <>
               <h3>Verwaltung</h3>
               <form action={updateMemberComment} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
@@ -228,7 +228,7 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
                 const isCommentEvent = item.eventType === "COMMENT_ADDED" || item.eventType === "COMMENT_CHANGED";
                 if (isCommentEvent) {
                   // Only show comment history to people who can actually edit/see comments
-                  return canEditMember(user, memberGuildIds, member.isAllianceMember);
+                  return canEditMember(user, memberGuildIds, member.isAllianceMember, member.leftAt, member.pastGuildIds, member.wasAllianceMember);
                 }
                 return true;
               })
