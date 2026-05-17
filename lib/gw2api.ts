@@ -84,7 +84,7 @@ export async function syncAllGuildRosters() {
             data: { 
               memberId: membership.memberId, 
               eventType: kicker ? "KICKED" : "LEFT", 
-              description: kicker ? `Aus ${guild.name} [${guild.tag}] entfernt (durch ${kicker})` : undefined,
+              oldValue: kicker ? `Aus ${guild.name} [${guild.tag}] entfernt (durch ${kicker})` : undefined,
               newValue: `${guild.name} [${guild.tag}]` 
             }
           });

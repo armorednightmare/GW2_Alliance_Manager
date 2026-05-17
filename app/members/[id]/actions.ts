@@ -161,7 +161,7 @@ export async function removeMemberFromManualGuild(data: FormData) {
     data: { 
       memberId: mg.memberId, 
       eventType: "KICKED", 
-      description: `Manuell entfernt (durch ${(session?.user as any)?.name || "Admin"})`,
+      oldValue: `Manuell entfernt (durch ${(session?.user as any)?.name || "Admin"})`,
       newValue: `${mg.guild.name} [${mg.guild.tag}] (Manuell)` 
     }
   });
