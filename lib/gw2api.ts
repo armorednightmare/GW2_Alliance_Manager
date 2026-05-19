@@ -84,8 +84,8 @@ export async function syncAllGuildRosters() {
             data: { 
               memberId: membership.memberId, 
               eventType: kicker ? "KICKED" : "LEFT", 
-              oldValue: kicker ? `Aus ${guild.name} [${guild.tag}] entfernt (durch ${kicker})` : undefined,
-              newValue: `${guild.name} [${guild.tag}]` 
+              oldValue: `${guild.name} [${guild.tag}]`,
+              newValue: kicker ? `Entfernt (durch ${kicker})` : "Verlassen" 
             }
           });
           syncLogs.push(`${membership.member.accountName} left ${guild.name} [${guild.tag}]`);
