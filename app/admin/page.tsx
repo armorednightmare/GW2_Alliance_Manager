@@ -1,5 +1,5 @@
 export const dynamic = 'force-dynamic';
-import { saveThemeSettings, saveSyncSettings, saveBackupSettings } from "./actions";
+import { saveThemeSettings, saveSyncSettings } from "./actions";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -8,8 +8,7 @@ import UserManagementClient from "./UserManagementClient";
 import GuildManagementClient from "./GuildManagementClient";
 import RoleManagementClient from "./RoleManagementClient";
 import ImportManagementClient from "./ImportManagementClient";
-import BackupManagementClient from "./BackupManagementClient";
-import { getBackupList } from "./actions";
+
 import { canManageUsers, canManageGuilds, canEditTheme, isHigherStaff } from "@/lib/permissions";
 import { sanitizeData } from "@/lib/utils";
 
@@ -89,7 +88,7 @@ export default async function AdminPage() {
     ? (await db.collection("roles").orderBy("name", "asc").get()).docs.map(doc => ({ id: doc.id, ...doc.data() }))
     : [];
 
-  const initialBackups = user.role === "ADMIN" ? await getBackupList() : [];
+
 
   return (
     <div>
@@ -185,38 +184,7 @@ export default async function AdminPage() {
             </div>
           )}
 
-          {/* Backup settings only for ADMIN */}
-          {user.role === "ADMIN" && (
-            <div style={{ marginTop: "2rem", paddingTop: "1.5rem", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-              <form action={saveBackupSettings}>
-                <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem" }}>💾 Datenbank Backup (Google Drive)</h3>
-                <div style={{ display: "flex", flexDirection: "column", gap: "1rem" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
-                    <select 
-                      name="backupCronSchedule" 
-                      defaultValue={settings?.backupCronSchedule || "0 3 * * 0"}
-                      style={{ 
-                        padding: "0.4rem 0.6rem", 
-                        background: "#1a1a1a", 
-                        color: "white", 
-                        border: "1px solid rgba(255,255,255,0.2)", 
-                        borderRadius: "4px",
-                        colorScheme: "dark"
-                      }}
-                    >
-                      <option value="DISABLED">Deaktiviert</option>
-                      <option value="0 3 * * *">Täglich (03:00 Uhr)</option>
-                      <option value="0 3 * * 0">Wöchentlich, Sonntags (03:00 Uhr)</option>
-                      <option value="0 3 1 * *">Monatlich, am 1. (03:00 Uhr)</option>
-                    </select>
-                    <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>Wann sollen automatische Backups erstellt werden?</span>
-                  </div>
-                  <button type="submit" className="btn-primary" style={{ width: "fit-content", padding: "0.5rem 2rem" }}>Backup-Plan Speichern</button>
-                </div>
-              </form>
-              <BackupManagementClient initialBackups={sanitizeData(initialBackups)} backupEmail={settings?.backupEmail} />
-            </div>
-          )}
+
         </div>
       )}
 

@@ -1,59 +1,17 @@
 import { db } from "./lib/firebase-admin";
 import { syncAllGuildRosters } from "./lib/gw2api";
-import { runDatabaseBackup } from "./lib/backup";
-import cron, { ScheduledTask } from "node-cron";
+
 
 async function sleep(ms: number) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-// Dynamic Backup Cron Logic
-let currentBackupSchedule: string = '0 3 * * 0'; // default
-let currentBackupCronTask: ScheduledTask | null = null;
 
-function applyBackupSchedule(schedule: string) {
-  if (currentBackupCronTask) {
-    currentBackupCronTask.stop();
-    currentBackupCronTask = null;
-  }
-  
-  if (schedule === "DISABLED") {
-    console.log("⏸️ Automatisierte Backups sind deaktiviert.");
-    return;
-  }
-
-  // Basic validation to prevent crashing
-  if (!cron.validate(schedule)) {
-    console.error("❌ Ungültiger Cron-Ausdruck:", schedule);
-    return;
-  }
-
-  currentBackupCronTask = cron.schedule(schedule, async () => {
-    console.log("⏰ Cron Trigger: Scheduled Database Backup");
-    try {
-      await runDatabaseBackup();
-    } catch (e: any) {
-      console.error("❌ Uncaught exception in Database Backup job:", e);
-    }
-  });
-  console.log(`⏱️ Backup-Zeitplan aktualisiert auf: "${schedule}"`);
-}
 
 async function runCron() {
   console.log("🛠️ Background Auto-Sync Worker started.");
 
-  // Init backup schedule
-  try {
-    const settingsSnapshot = await db.collection("settings").doc("system").get();
-    const settings = settingsSnapshot.exists ? settingsSnapshot.data() : null;
-    if (settings?.backupCronSchedule) {
-      currentBackupSchedule = settings.backupCronSchedule;
-    }
-  } catch (e) {
-    console.log("Firestore might not be ready yet for settings");
-  }
-  
-  applyBackupSchedule(currentBackupSchedule);
+
 
   while (true) {
     let intervalMinutes = 60; // Default
@@ -64,11 +22,7 @@ async function runCron() {
       if (settings?.apiSyncInterval) {
         intervalMinutes = settings.apiSyncInterval;
       }
-      if (settings?.backupCronSchedule && settings.backupCronSchedule !== currentBackupSchedule) {
-        console.log(`♻️ Neuer Backup-Zeitplan erkannt!`);
-        currentBackupSchedule = settings.backupCronSchedule;
-        applyBackupSchedule(currentBackupSchedule);
-      }
+
     } catch (e: any) {
       console.error("Cron Firestore lookup failed:", e.message);
     }

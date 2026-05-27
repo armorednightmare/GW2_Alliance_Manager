@@ -59,33 +59,12 @@ export async function GET(request: Request) {
       await db.collection("settings").doc("system").set({ lastSync: new Date() }, { merge: true });
     }
 
-    // Trigger Backup if due
-    let backupTriggered = false;
-    const schedule = settings?.backupCronSchedule || "0 3 * * 0";
-    if (schedule !== "DISABLED") {
-      const lastBackupDate = settings?.lastBackup?.toDate ? settings.lastBackup.toDate() : null;
-      let shouldBackup = !lastBackupDate;
-      
-      if (lastBackupDate) {
-        const hoursSinceLast = (Date.now() - lastBackupDate.getTime()) / (1000 * 60 * 60);
-        if (schedule === "0 3 * * *") shouldBackup = hoursSinceLast >= 23.5; // Daily
-        else if (schedule === "0 3 * * 0") shouldBackup = hoursSinceLast >= (7 * 24 - 1); // Weekly
-        else if (schedule === "0 3 1 * *") shouldBackup = hoursSinceLast >= (28 * 24 - 1); // Monthly
-      }
-      
-      if (shouldBackup) {
-        const { runDatabaseBackup } = await import("@/lib/backup");
-        await runDatabaseBackup();
-        await db.collection("settings").doc("system").set({ lastBackup: new Date() }, { merge: true });
-        backupTriggered = true;
-      }
-    }
 
     return NextResponse.json({ 
       success: true, 
       syncRan: shouldSync,
       changes: logs.length, 
-      backupTriggered, 
+
       logs 
     });
   } catch(e: any) {

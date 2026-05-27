@@ -3,7 +3,7 @@ import { db } from "@/lib/firebase-admin";
 import { revalidatePath } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
-import { runDatabaseBackup, getGoogleDriveClient } from "@/lib/backup";
+
 import bcrypt from "bcryptjs";
 
 // ── Helpers: Role Checks ─────────────────────────────────────────────────────
@@ -91,68 +91,7 @@ export async function saveSyncSettings(data: FormData) {
   revalidatePath("/admin");
 }
 
-export async function saveBackupSettings(data: FormData) {
-  await requireAdmin();
-  const settingsRef = db.collection("settings").doc("system");
-  const doc = await settingsRef.get();
-  const existing = doc.exists ? doc.data() : null;
 
-  const backupCronSchedule = (data.get("backupCronSchedule") as string) || "0 3 * * 0";
-
-  await settingsRef.set({
-    ...existing,
-    backupCronSchedule,
-    allianceName: existing?.allianceName || "Alliance"
-  }, { merge: true });
-
-  revalidatePath("/admin");
-}
-
-export async function triggerManualBackup() {
-  await requireAdmin();
-  try {
-    await runDatabaseBackup();
-    revalidatePath("/admin");
-    return { success: true };
-  } catch (e: any) {
-    throw new Error(`Backup fehlgeschlagen: ${e.message}`);
-  }
-}
-
-export async function getBackupList() {
-  await requireAdmin();
-  try {
-    const { drive, targetFolderId } = await getGoogleDriveClient();
-    const res = await drive.files.list({
-      q: `'${targetFolderId}' in parents and trashed=false`,
-      fields: 'files(id, name, size, createdTime)',
-      orderBy: 'createdTime desc'
-    });
-    
-    // Map and filter to ensure strict types for the client
-    return (res.data.files || [])
-      .filter(file => file.id && file.name && file.createdTime)
-      .map(file => ({
-        id: file.id as string,
-        name: file.name as string,
-        size: file.size || "0",
-        createdTime: file.createdTime as string
-      }));
-  } catch (e: any) {
-    console.error("Fehler beim Laden der Backups:", e.message);
-    return [];
-  }
-}
-
-export async function unlinkBackupAccount() {
-  await requireAdmin();
-  const settingsRef = db.collection("settings").doc("system");
-  await settingsRef.update({
-    backupRefreshToken: null,
-    backupEmail: null,
-  });
-  revalidatePath("/admin");
-}
 
 // ── User Management ──────────────────────────────────────────────────────────
 export async function changeUserRole(userId: string, role: string) {
