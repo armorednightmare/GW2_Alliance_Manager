@@ -46,7 +46,9 @@ export async function syncAllGuildRosters() {
           if (log.type === 'invited' && log.user && log.invited_by) {
             inviterMap.set(log.user, log.invited_by);
           } else if (log.type === 'kick' && log.user && log.kicked_by) {
-            kickMap.set(log.user, log.kicked_by);
+            if (log.user !== log.kicked_by) {
+              kickMap.set(log.user, log.kicked_by);
+            }
           }
         });
       }
