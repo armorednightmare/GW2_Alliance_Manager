@@ -16,6 +16,15 @@ const nextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: '/:path*',
+        destination: 'https://frog-alliance-manager--frog-alliance-manager.europe-west4.hosted.app/:path*',
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default nextConfig;
