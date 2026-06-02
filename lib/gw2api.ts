@@ -90,6 +90,8 @@ export async function syncAllGuildRosters() {
         }
       }
 
+      const isAllianceGuild = guild.isAllianceGuild;
+
       // 3. Find members in DB who are supposedly in this guild
       // We use the new 'guildIds' string array field for reliable querying
       const membersInGuildSnapshot = await db.collection("members").where("guildIds", "array-contains", guild.id).get();
@@ -118,8 +120,9 @@ export async function syncAllGuildRosters() {
             if (!isStillInAlliance && member.isAllianceMember) {
               updateData.isAllianceMember = false;
               updateData.wvwMember = false;
-              // Optional: You could also set status = "INACTIVE_LEFT" here if you only want to track people in the alliance, 
-              // but keeping them ACTIVE for their casual guild is fine since we filter views by isAllianceMember.
+            } else if (isAllianceGuild) {
+              // If they left the alliance guild but stay in other sub-guilds, they are no longer representing the alliance
+              updateData.wvwMember = false;
             }
           }
 
@@ -137,34 +140,39 @@ export async function syncAllGuildRosters() {
           });
           syncLogs.push(`${member.accountName} ${kicker ? 'was kicked from' : 'left'} ${guild.name} [${guild.tag}]`);
         } else {
-          // Still in this guild - Check for rank changes
+          // Still in this guild - Check for rank or WvW representation changes
           const guildMembership = member.guilds.find((g: any) => g.id === guild.id);
-          if (guildMembership.rank !== apiData.rank) {
+          const hasRankChanged = guildMembership.rank !== apiData.rank;
+          const hasWvwChanged = isAllianceGuild && (member.wvwMember !== apiData.wvw_member);
+
+          if (hasRankChanged || hasWvwChanged) {
             const updatedGuilds = member.guilds.map((g: any) => 
-              g.id === guild.id ? { ...g, rank: apiData.rank, lastSeenAt: new Date() } : g
+              g.id === guild.id ? { ...g, rank: apiData.rank, lastUpdatedAt: new Date() } : g
             );
             
             const updateData: any = { 
               guilds: updatedGuilds,
               guildIds: updatedGuilds.map((g: any) => g.id),
               status: "ACTIVE",
-              lastSeenAt: new Date()
+              lastUpdatedAt: new Date()
             };
             if (guild.isAllianceGuild) {
               updateData.isAllianceMember = true;
+            }
+            if (isAllianceGuild) {
               updateData.wvwMember = apiData.wvw_member;
             }
 
             await memberDoc.ref.update(updateData);
-            await memberDoc.ref.collection("history").add({
-              eventType: "RANK_CHANGE",
-              oldValue: `${guildMembership.rank} (${guild.tag})`,
-              newValue: `${apiData.rank} (${guild.tag})`,
-              timestamp: new Date()
-            });
-          } else {
-            // Just update last seen
-            await memberDoc.ref.update({ lastSeenAt: new Date() });
+            
+            if (hasRankChanged) {
+              await memberDoc.ref.collection("history").add({
+                eventType: "RANK_CHANGE",
+                oldValue: `${guildMembership.rank} (${guild.tag})`,
+                newValue: `${apiData.rank} (${guild.tag})`,
+                timestamp: new Date()
+              });
+            }
           }
           // Remove from apiMemberMap so we only have NEW members left
           apiMemberMap.delete(member.accountName);
@@ -194,19 +202,25 @@ export async function syncAllGuildRosters() {
           name: guild.name,
           tag: guild.tag,
           rank: apiData.rank,
-          lastSeenAt: new Date()
+          lastUpdatedAt: new Date()
         };
 
         const newGuildsArray = [...existingGuilds, newMembership];
         const memberData: any = {
           accountName: accountName,
           status: "ACTIVE",
-          lastSeenAt: new Date(),
+          lastUpdatedAt: new Date(),
           guilds: newGuildsArray,
           guildIds: newGuildsArray.map((g: any) => g.id),
           ...(inviter ? { invitedBy: inviter } : {}),
-          ...(guild.isAllianceGuild ? { isAllianceMember: true, wvwMember: apiData.wvw_member } : {})
+          ...(guild.isAllianceGuild ? { isAllianceMember: true } : {})
         };
+
+        if (isAllianceGuild) {
+          memberData.wvwMember = apiData.wvw_member;
+        } else if (isNew) {
+          memberData.wvwMember = false;
+        }
 
         if (isNew) {
           memberData.joinedAt = new Date(apiData.joined);
