@@ -34,6 +34,9 @@ export default async function MembersPage() {
      members = members.filter((m: any) => m.isAllianceMember || m.status === "INACTIVE_LEFT" || m.status === "INACTIVE_KICKED");
   }
 
+  const allianceGuildSnapshot = await db.collection("guilds").where("isAllianceGuild", "==", true).limit(1).get();
+  const allianceGuildId = allianceGuildSnapshot.empty ? null : allianceGuildSnapshot.docs[0].id;
+
   // Mask ranks for guilds the user is not part of, and serialize Timestamps
   const maskedMembers = members.map(m => ({
     ...m,
@@ -48,17 +51,11 @@ export default async function MembersPage() {
 
   return (
     <div>
-      <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)"}}>Mitgliederübersicht</h1>
-      <p style={{ opacity: 0.8 }}>
-        Hier sehen Sie alle Mitglieder, Gildenfreunde und Ausgetretene der verknüpften Gilden.
-        {user?.role === "ALLIANCE_LEADER"
-          ? " Sie sehen Allianzmitglieder sowie Mitglieder, die die Gilde verlassen haben."
-          : user?.role === "WEB_MEMBER" || !user
-            ? " Die Ansicht ist auf offizielle Allianzmitglieder beschränkt."
-            : " Sie sehen Allianzmitglieder sowie Mitglieder Ihrer eigenen Gilde."}
-      </p>
-
-      <MembersClient initialMembers={sanitizeData(maskedMembers)} />
+      <MembersClient 
+        initialMembers={sanitizeData(maskedMembers)} 
+        userRole={user?.role} 
+        allianceGuildId={allianceGuildId} 
+      />
     </div>
   );
 }

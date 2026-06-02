@@ -25,8 +25,22 @@ type MemberWithGuilds = {
   [key: string]: any;
 };
 
-export default function MembersClient({ initialMembers }: { initialMembers: MemberWithGuilds[] }) {
+export default function MembersClient({ 
+  initialMembers, 
+  userRole, 
+  allianceGuildId 
+}: { 
+  initialMembers: MemberWithGuilds[]; 
+  userRole?: string; 
+  allianceGuildId?: string | null; 
+}) {
   const { t } = useLanguage();
+
+  const getSubtitle = () => {
+    if (userRole === "ALLIANCE_LEADER") return t("membersSubtitleAllianceLeader");
+    if (userRole === "GUILD_LEADER" || userRole === "ADMIN") return t("membersSubtitleAdmin");
+    return t("membersSubtitleDefault");
+  };
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [guildFilter, setGuildFilter] = useState("ALL");
@@ -114,6 +128,11 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
 
   return (
     <div>
+      <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)" }}>{t("membersTitle")}</h1>
+      <p style={{ opacity: 0.8, marginBottom: "1.5rem" }}>
+        {t("membersIntro")}{getSubtitle()}
+      </p>
+
       <div style={{ marginBottom: "1.5rem", display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
         <input 
           type="text" 
@@ -175,14 +194,17 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
                   </td>
                   <td>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', fontSize: '0.85rem' }}>
-                      {m.guilds?.map((mg, idx) => (
-                        <div key={idx} style={{ opacity: mg.isAllianceGuild ? 1 : 0.8 }}>
-                          <span style={{ fontWeight: mg.isAllianceGuild ? 'bold' : 'normal' }}>
-                            [{mg.tag || '???'}]
-                          </span>
-                          <span style={{ marginLeft: '6px', opacity: 0.7 }}>{mg.rank}</span>
-                        </div>
-                      ))}
+                      {m.guilds?.map((mg, idx) => {
+                        const isAlliance = mg.isAllianceGuild || mg.id === allianceGuildId;
+                        return (
+                          <div key={idx} style={{ opacity: isAlliance ? 1 : 0.8 }}>
+                            <span style={{ fontWeight: isAlliance ? 'bold' : 'normal' }}>
+                              [{mg.tag || '???'}]
+                            </span>
+                            <span style={{ marginLeft: '6px', opacity: 0.7 }}>{mg.rank}</span>
+                          </div>
+                        );
+                      })}
                       {(!m.guilds || m.guilds.length === 0) && '-'}
                     </div>
                   </td>

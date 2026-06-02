@@ -147,7 +147,7 @@ export async function syncAllGuildRosters() {
 
           if (hasRankChanged || hasWvwChanged) {
             const updatedGuilds = member.guilds.map((g: any) => 
-              g.id === guild.id ? { ...g, rank: apiData.rank, lastUpdatedAt: new Date() } : g
+              g.id === guild.id ? { ...g, rank: apiData.rank, lastUpdatedAt: new Date(), isAllianceGuild: guild.isAllianceGuild || false } : g
             );
             
             const updateData: any = { 
@@ -202,7 +202,8 @@ export async function syncAllGuildRosters() {
           name: guild.name,
           tag: guild.tag,
           rank: apiData.rank,
-          lastUpdatedAt: new Date()
+          lastUpdatedAt: new Date(),
+          isAllianceGuild: guild.isAllianceGuild || false
         };
 
         const newGuildsArray = [...existingGuilds, newMembership];
