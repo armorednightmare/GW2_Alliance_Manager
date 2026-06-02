@@ -207,7 +207,7 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
               <tr>
                 <th onClick={() => handleSort("name")} style={{cursor:"pointer"}}>Gilde <SortIcon field="name" /></th>
                 <th onClick={() => handleSort("hasLeaderToken")} style={{cursor:"pointer"}}>Sync-Status <SortIcon field="hasLeaderToken" /></th>
-                <th onClick={() => handleSort("totalActive")} style={{cursor:"pointer", textAlign:"right"}}>Aktive Spieler <SortIcon field="totalActive" /></th>
+                <th onClick={() => handleSort("totalActive")} style={{cursor:"pointer", textAlign:"right"}}>Mitglieder <SortIcon field="totalActive" /></th>
                 <th onClick={() => handleSort("wvwActive")} style={{cursor:"pointer", textAlign:"right"}}>WvW Vertreten <SortIcon field="wvwActive" /></th>
                 <th style={{textAlign:"right"}}>Anteil (WvW)</th>
               </tr>
