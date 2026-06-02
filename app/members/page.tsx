@@ -38,11 +38,11 @@ export default async function MembersPage() {
   const maskedMembers = members.map(m => ({
     ...m,
     joinedAt: m.joinedAt?.toDate ? m.joinedAt.toDate().toISOString() : m.joinedAt,
-    lastSeenAt: m.lastSeenAt?.toDate ? m.lastSeenAt.toDate().toISOString() : m.lastSeenAt,
+    lastUpdatedAt: (m.lastUpdatedAt || m.lastSeenAt)?.toDate ? (m.lastUpdatedAt || m.lastSeenAt).toDate().toISOString() : (m.lastUpdatedAt || m.lastSeenAt),
     guilds: (m.guilds || []).map((mg: any) => ({
       ...mg,
       rank: canSeeRank(user, mg as any) ? mg.rank : "",
-      lastSeenAt: mg.lastSeenAt?.toDate ? mg.lastSeenAt.toDate().toISOString() : mg.lastSeenAt,
+      lastUpdatedAt: (mg.lastUpdatedAt || mg.lastSeenAt)?.toDate ? (mg.lastUpdatedAt || mg.lastSeenAt).toDate().toISOString() : (mg.lastUpdatedAt || mg.lastSeenAt),
     }))
   }));
 

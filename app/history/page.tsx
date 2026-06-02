@@ -43,10 +43,10 @@ export default async function HistoryPage() {
           if (doc.exists) {
             let data = doc.data() as any;
             data.joinedAt = data.joinedAt?.toDate ? data.joinedAt.toDate().toISOString() : data.joinedAt;
-            data.lastSeenAt = data.lastSeenAt?.toDate ? data.lastSeenAt.toDate().toISOString() : data.lastSeenAt;
+            data.lastUpdatedAt = (data.lastUpdatedAt || data.lastSeenAt)?.toDate ? (data.lastUpdatedAt || data.lastSeenAt).toDate().toISOString() : (data.lastUpdatedAt || data.lastSeenAt);
             data.guilds = (data.guilds || []).map((mg: any) => ({
                 ...mg,
-                lastSeenAt: mg.lastSeenAt?.toDate ? mg.lastSeenAt.toDate().toISOString() : mg.lastSeenAt
+                lastUpdatedAt: (mg.lastUpdatedAt || mg.lastSeenAt)?.toDate ? (mg.lastUpdatedAt || mg.lastSeenAt).toDate().toISOString() : (mg.lastUpdatedAt || mg.lastSeenAt)
             }));
             memberMap.set(doc.id, { id: doc.id, ...data });
           }

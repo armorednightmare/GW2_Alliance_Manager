@@ -102,7 +102,7 @@ export async function addMemberToManualGuild(data: FormData) {
       name: guild.name,
       tag: guild.tag,
       rank,
-      lastSeenAt: new Date(),
+      lastUpdatedAt: new Date(),
       isManual: true
   }];
 
