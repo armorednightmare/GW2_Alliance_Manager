@@ -96,8 +96,10 @@ button, .btn-login, .btn-logout {
   background: transparent;
   border: none;
   border-radius: 6px;
-  padding: 0.2rem 0.35rem;
-  font-size: 1.35rem;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: white;
   line-height: 1;
   cursor: pointer;
   opacity: 0.35;

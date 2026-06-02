@@ -58,7 +58,7 @@ export default function Header({ allianceName = "Alliance Manager", logoUrl }: H
             title="Deutsch"
             aria-pressed={lang === "de"}
           >
-            🇩🇪
+            DE
           </button>
           <button
             id="lang-en"
@@ -67,7 +67,7 @@ export default function Header({ allianceName = "Alliance Manager", logoUrl }: H
             title="English"
             aria-pressed={lang === "en"}
           >
-            🇬🇧
+            EN
           </button>
         </div>
 
