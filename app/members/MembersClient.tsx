@@ -2,6 +2,7 @@
 import Link from "next/link";
 import React, { useState, useMemo } from "react";
 import "./Members.css";
+import { useLanguage } from "../components/LanguageContext";
 
 // Basic type matching Firestore query response
 // Basic type matching Firestore query response
@@ -25,6 +26,7 @@ type MemberWithGuilds = {
 };
 
 export default function MembersClient({ initialMembers }: { initialMembers: MemberWithGuilds[] }) {
+  const { t } = useLanguage();
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("ACTIVE");
   const [guildFilter, setGuildFilter] = useState("ALL");
@@ -115,7 +117,7 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
       <div style={{ marginBottom: "1.5rem", display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
         <input 
           type="text" 
-          placeholder="Suchen nach Account, Gilde, Rang..." 
+          placeholder={t("searchPlaceholder")}
           value={search}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSearch(e.target.value)}
           className="search-input glass-panel"
@@ -126,9 +128,9 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
           className="search-input glass-panel"
           style={{ cursor: "pointer", background: "#1e1e1e", color: "white" }}
         >
-          <option value="ALL" style={{ background: "#1e1e1e" }}>Alle Status</option>
-          <option value="ACTIVE" style={{ background: "#1e1e1e" }}>Nur Aktive</option>
-          <option value="INACTIVE_LEFT" style={{ background: "#1e1e1e" }}>Nur Inaktive (Verlassen/Gekickt)</option>
+          <option value="ALL" style={{ background: "#1e1e1e" }}>{t("allStatuses")}</option>
+          <option value="ACTIVE" style={{ background: "#1e1e1e" }}>{t("onlyActive")}</option>
+          <option value="INACTIVE_LEFT" style={{ background: "#1e1e1e" }}>{t("onlyInactive")}</option>
         </select>
         
         <select
@@ -137,27 +139,27 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
           className="search-input glass-panel"
           style={{ cursor: "pointer", background: "#1e1e1e", color: "white" }}
         >
-          <option value="ALL" style={{ background: "#1e1e1e" }}>Alle Gilden</option>
+          <option value="ALL" style={{ background: "#1e1e1e" }}>{t("allGuilds")}</option>
           {uniqueGuilds.map(([tag, name]) => (
             <option key={tag} value={tag} style={{ background: "#1e1e1e" }}>
               [{tag}] {name}
             </option>
           ))}
         </select>
-        <span style={{opacity: 0.7, textShadow: '0 0 5px rgba(255,255,255,0.2)'}}>{filteredMembers.length} Spieler {(filteredMembers.length !== initialMembers.length) ? 'gefiltert' : 'gesamt'}</span>
+        <span style={{opacity: 0.7, textShadow: '0 0 5px rgba(255,255,255,0.2)'}}>{filteredMembers.length} {(filteredMembers.length !== initialMembers.length) ? t("playersFiltered") : t("playersTotal")}</span>
       </div>
 
       <div className="table-wrapper">
         <table className="member-table glass-panel">
           <thead>
             <tr>
-              <th onClick={() => handleSort("accountName")} style={{cursor:"pointer"}}>Account <SortIcon field="accountName" /></th>
-              <th onClick={() => handleSort("status")} style={{cursor:"pointer"}}>Status <SortIcon field="status" /></th>
-              <th>Gilden (+ Ränge)</th>
-              <th onClick={() => handleSort("wvwMember")} style={{cursor:"pointer"}}>WvW Vertreten <SortIcon field="wvwMember" /></th>
-              <th onClick={() => handleSort("isAllianceMember")} style={{cursor:"pointer"}}>Allianz <SortIcon field="isAllianceMember" /></th>
-              <th onClick={() => handleSort("manualRole")} style={{cursor:"pointer"}}>Rollen <SortIcon field="manualRole" /></th>
-              <th>Aktionen</th>
+              <th onClick={() => handleSort("accountName")} style={{cursor:"pointer"}}>{t("columnAccount")} <SortIcon field="accountName" /></th>
+              <th onClick={() => handleSort("status")} style={{cursor:"pointer"}}>{t("columnStatus")} <SortIcon field="status" /></th>
+              <th>{t("columnGuilds")}</th>
+              <th onClick={() => handleSort("wvwMember")} style={{cursor:"pointer"}}>{t("columnWvw")} <SortIcon field="wvwMember" /></th>
+              <th onClick={() => handleSort("isAllianceMember")} style={{cursor:"pointer"}}>{t("columnAlliance")} <SortIcon field="isAllianceMember" /></th>
+              <th onClick={() => handleSort("manualRole")} style={{cursor:"pointer"}}>{t("columnRoles")} <SortIcon field="manualRole" /></th>
+              <th>{t("columnActions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -185,11 +187,11 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
                     </div>
                   </td>
 
-                  <td>{m.wvwMember ? '✅ Ja' : '❌ Nein'}</td>
-                  <td>{m.isAllianceMember ? '✅ Ja' : '❌ Nein'}</td>
+                  <td>{m.wvwMember ? `✅ ${t("yes")}` : `❌ ${t("no")}`}</td>
+                  <td>{m.isAllianceMember ? `✅ ${t("yes")}` : `❌ ${t("no")}`}</td>
                   <td>{m.manualRole || '-'}</td>
                   <td>
-                    <Link href={`/members/${m.id}`} className="btn-details">Details</Link>
+                    <Link href={`/members/${m.id}`} className="btn-details">{t("details")}</Link>
                   </td>
                 </tr>
               );
@@ -197,7 +199,7 @@ export default function MembersClient({ initialMembers }: { initialMembers: Memb
             {filteredMembers.length === 0 && (
               <tr>
                 <td colSpan={7} style={{ textAlign: 'center', padding: '3rem' }}>
-                  Keine entsprechenden Mitglieder gefunden.
+                  {t("noMembersFound")}
                 </td>
               </tr>
             )}

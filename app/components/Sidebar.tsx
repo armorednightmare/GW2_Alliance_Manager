@@ -1,15 +1,16 @@
+"use client";
 import Link from "next/link";
 import "./Sidebar.css";
 import SidebarClient from "./SidebarClient";
-import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/lib/auth";
+import { useSession } from "next-auth/react";
+import { useLanguage } from "./LanguageContext";
 
-export default async function Sidebar(): Promise<JSX.Element> {
-  const session = await getServerSession(authOptions) as any;
-  const user = session?.user;
+export default function Sidebar(): JSX.Element {
+  const { data: session } = useSession();
+  const { t } = useLanguage();
+  const user = (session?.user as any);
   const role = user?.role;
   const isAdmin = role === "ADMIN" || role === "ALLIANCE_LEADER" || role === "GUILD_LEADER";
-
   const isNewUser = role === "NEW_USER";
 
   return (
@@ -18,10 +19,10 @@ export default async function Sidebar(): Promise<JSX.Element> {
         <ul>
           {!isNewUser && (
             <>
-              <li><Link href="/">Dashboard</Link></li>
-              <li><Link href="/guilds">Gilden</Link></li>
-              <li><Link href="/members">Mitglieder</Link></li>
-              <li><Link href="/history">Historie</Link></li>
+              <li><Link href="/">{t("dashboard")}</Link></li>
+              <li><Link href="/guilds">{t("guilds")}</Link></li>
+              <li><Link href="/members">{t("members")}</Link></li>
+              <li><Link href="/history">{t("history")}</Link></li>
             </>
           )}
         </ul>
@@ -30,21 +31,18 @@ export default async function Sidebar(): Promise<JSX.Element> {
       <div className="sidebar-account-nav">
         {isAdmin && (
           <Link href="/admin" className="footer-link">
-            <span className="icon">⚙️ Admin Panel</span>
+            <span className="icon">⚙️ {t("admin")}</span>
           </Link>
         )}
         {session && (
           <Link href="/profile" className="footer-link">
-            <span className="icon">👤 Mein Profil</span>
+            <span className="icon">👤 {t("profile")}</span>
           </Link>
         )}
       </div>
 
       <div className="sidebar-footer">
-        <Link
-          href="/docs/USER_GUIDE"
-          className="footer-link"
-        >
+        <Link href="/docs/USER_GUIDE" className="footer-link">
           <span className="icon">📚 Dokumentation</span>
         </Link>
       </div>

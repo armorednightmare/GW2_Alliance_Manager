@@ -1,5 +1,6 @@
 "use client";
 import React, { useState, useMemo } from "react";
+import { useLanguage } from "../components/LanguageContext";
 
 type GuildStat = {
   id: string;
@@ -20,6 +21,7 @@ interface TooltipState {
 }
 
 export default function GuildsClient({ initialGuilds, totalWvwMembers, members, allGuilds }: { initialGuilds: GuildStat[], totalWvwMembers: number, members: any[], allGuilds: any[] }) {
+  const { lang, t } = useLanguage();
   const [search, setSearch] = useState("");
   const [sortField, setSortField] = useState<string>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -190,12 +192,12 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
       <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
         <input 
           type="text" 
-          placeholder="Suchen nach Name, Tag..." 
+          placeholder={t("searchGuilds")}
           value={search}
           onChange={(e: any) => setSearch(e.target.value)}
           className="search-input glass-panel"
         />
-        <span style={{opacity: 0.7, textShadow: '0 0 5px rgba(255,255,255,0.2)'}}>{filteredGuilds.length} Gilden {(filteredGuilds.length !== initialGuilds.length) ? 'gefiltert' : 'gesamt'}</span>
+        <span style={{opacity: 0.7, textShadow: '0 0 5px rgba(255,255,255,0.2)'}}>{filteredGuilds.length} {(filteredGuilds.length !== initialGuilds.length) ? t("guildsFiltered") : t("guildsTotal")}</span>
       </div>
 
       <div style={{ display: "flex", gap: "3rem", flexWrap: "wrap", alignItems: "flex-start" }}>
@@ -205,11 +207,11 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
           <table className="member-table glass-panel">
             <thead>
               <tr>
-                <th onClick={() => handleSort("name")} style={{cursor:"pointer"}}>Gilde <SortIcon field="name" /></th>
-                <th onClick={() => handleSort("hasLeaderToken")} style={{cursor:"pointer"}}>Sync-Status <SortIcon field="hasLeaderToken" /></th>
-                <th onClick={() => handleSort("totalActive")} style={{cursor:"pointer", textAlign:"right"}}>Mitglieder <SortIcon field="totalActive" /></th>
-                <th onClick={() => handleSort("wvwActive")} style={{cursor:"pointer", textAlign:"right"}}>WvW Vertreten <SortIcon field="wvwActive" /></th>
-                <th style={{textAlign:"right"}}>Anteil (WvW)</th>
+                <th onClick={() => handleSort("name")} style={{cursor:"pointer"}}>{t("columnGuild")} <SortIcon field="name" /></th>
+                <th onClick={() => handleSort("hasLeaderToken")} style={{cursor:"pointer"}}>{t("columnSyncStatus")} <SortIcon field="hasLeaderToken" /></th>
+                <th onClick={() => handleSort("totalActive")} style={{cursor:"pointer", textAlign:"right"}}>{t("columnMembers")} <SortIcon field="totalActive" /></th>
+                <th onClick={() => handleSort("wvwActive")} style={{cursor:"pointer", textAlign:"right"}}>{t("columnWvwActive")} <SortIcon field="wvwActive" /></th>
+                <th style={{textAlign:"right"}}>{t("columnShare")}</th>
               </tr>
             </thead>
             <tbody>
@@ -240,7 +242,7 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
                         </div>
                       </div>
                     </td>
-                    <td>{g.hasLeaderToken ? '✅ API-Key hinterlegt' : (g.id !== "andere" ? '❌ Kein API-Key' : '')}</td>
+                    <td>{g.hasLeaderToken ? t("syncOk") : (g.id !== "andere" ? t("syncMissing") : '')}</td>
                     <td style={{textAlign:"right", fontFamily: "monospace", fontSize: "1.1rem"}}>{g.totalActive}</td>
                     <td style={{textAlign:"right", fontFamily: "monospace", fontSize: "1.1rem"}}>{g.wvwActive}</td>
                     <td style={{textAlign:"right", width: "200px"}}>
@@ -272,7 +274,7 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
                          </div>
                       </div>
                     </td>
-                    <td style={{ borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)' }}>{g.hasLeaderToken ? '✅ API-Key hinterlegt' : '❌ Kein API-Key'}</td>
+                    <td style={{ borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)' }}>{g.hasLeaderToken ? t("syncOk") : t("syncMissing")}</td>
                     <td style={{textAlign:"right", fontFamily: "monospace", fontSize: "1.1rem", borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)'}}>{g.totalActive}</td>
                     <td style={{textAlign:"right", fontFamily: "monospace", fontSize: "1.1rem", borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)'}}>{g.wvwActive}</td>
                     <td style={{textAlign:"right", width: "200px", borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)'}}>
@@ -288,7 +290,7 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
               {filteredGuilds.length === 0 && (
                 <tr>
                   <td colSpan={5} style={{ textAlign: 'center', padding: '3rem' }}>
-                    Keine entsprechenden Gilden gefunden.
+                    {t("noGuildsFound")}
                   </td>
                 </tr>
               )}
@@ -299,7 +301,7 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
         {/* Pie Chart (Right Side) */}
         {chartSegments.length > 0 && (
           <div className="glass-panel" style={{ flex: "0 0 350px", display: "flex", flexDirection: "column", alignItems: "center", padding: "2rem", position: "relative", background: "rgba(15, 15, 15, 0.4)", border: "1px solid rgba(102, 252, 241, 0.1)" }}>
-             <h3 style={{ margin: "0 0 1.5rem 0", color: "var(--accent-color)" }}>WvW-Verteilung</h3>
+             <h3 style={{ margin: "0 0 1.5rem 0", color: "var(--accent-color)" }}>{t("wvwDistribution")}</h3>
              <svg
               viewBox="-1.3 -1.3 2.6 2.6"
               style={{ width: "100%", maxWidth: "300px", overflow: "visible" }}
@@ -385,15 +387,15 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
                   {tooltip.stats.name}
                 </div>
                 <div style={{ fontSize: "0.8rem", opacity: 0.9, marginBottom: "0.3rem" }}>
-                  <span style={{ color: "#66FCF1" }}>{tooltip.stats.wvwTotal}</span> WvW-Mitglieder
+                  <span style={{ color: "#66FCF1" }}>{tooltip.stats.wvwTotal}</span> {lang === "de" ? "WvW-Mitglieder" : "WvW members"}
                 </div>
                 <div style={{ fontSize: "0.8rem", opacity: 0.9, marginBottom: "0.3rem" }}>
-                  <span style={{ color: "#2ecc71" }}>{tooltip.stats.wvwExclusive}</span> nur in dieser Gilde
+                  <span style={{ color: "#2ecc71" }}>{tooltip.stats.wvwExclusive}</span> {lang === "de" ? "nur in dieser Gilde" : "exclusive to this guild"}
                 </div>
                 {tooltip.stats.wvwOverlap > 0 && (
                   <>
                     <div style={{ fontSize: "0.8rem", opacity: 0.9, marginBottom: "0.3rem" }}>
-                      <span style={{ color: "#e67e22" }}>{tooltip.stats.wvwOverlap}</span> auch in anderen Gilden:
+                      <span style={{ color: "#e67e22" }}>{tooltip.stats.wvwOverlap}</span> {lang === "de" ? "auch in anderen Gilden:" : "also in other guilds:"}
                     </div>
                     <div style={{ paddingLeft: "0.5rem", display: "flex", flexDirection: "column", gap: "0.2rem" }}>
                       {Object.entries(tooltip.stats.overlapDetails as Record<string, number>).map(([gid, count]) => {
@@ -408,7 +410,7 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
                   </>
                 )}
                 {tooltip.stats.wvwOverlap === 0 && (
-                  <div style={{ fontSize: "0.75rem", opacity: 0.5, fontStyle: "italic" }}>Keine Überschneidungen</div>
+                  <div style={{ fontSize: "0.75rem", opacity: 0.5, fontStyle: "italic" }}>{lang === "de" ? "Keine Überschneidungen" : "No overlaps"}</div>
                 )}
               </div>
             )}
@@ -429,12 +431,12 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
                 minWidth: "180px",
                 backdropFilter: "blur(8px)"
               }}>
-                <div style={{ fontWeight: "bold", color: "#aaa", marginBottom: "0.4rem" }}>Andere</div>
+                <div style={{ fontWeight: "bold", color: "#aaa", marginBottom: "0.4rem" }}>{lang === "de" ? "Andere" : "Other"}</div>
                 <div style={{ fontSize: "0.8rem", opacity: 0.9 }}>
-                  <span style={{ color: "#66FCF1" }}>{tooltip.stats.wvwTotal}</span> WvW ohne Sub-Gilde
+                  <span style={{ color: "#66FCF1" }}>{tooltip.stats.wvwTotal}</span> {lang === "de" ? "WvW ohne Sub-Gilde" : "WvW without sub-guild"}
                 </div>
                 <div style={{ fontSize: "0.8rem", opacity: 0.9 }}>
-                  <span style={{ color: "#aaa" }}>{tooltip.stats.totalMembers}</span> Gesamt ohne Sub-Gilde
+                  <span style={{ color: "#aaa" }}>{tooltip.stats.totalMembers}</span> {lang === "de" ? "Gesamt ohne Sub-Gilde" : "Total without sub-guild"}
                 </div>
               </div>
             )}
