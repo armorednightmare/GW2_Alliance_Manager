@@ -101,15 +101,34 @@ export default async function Dashboard() {
               <div className="success-msg">Alle aktiven Spieler haben die WvW-Gilde ausgewählt! 🎉</div>
             ) : (
               <ul className="danger-list">
-                {sanitizedDangerMembers.map((m: any) => (
-                  <li key={m.id}>
-                    <strong>{m.accountName}</strong>
-                    <span className="guild-tag">
-                      {(m.guilds || []).map((mg: any) => `[${mg.tag}]`).join(' ')}
-                    </span>
-                    <Link href={`/members/${m.id}`} className="btn-small">Profil</Link>
-                  </li>
-                ))}
+                {sanitizedDangerMembers.map((m: any) => {
+                  const allianceGuild = (m.guilds || []).find((mg: any) => mg.isAllianceGuild);
+                  const allianceRank = allianceGuild ? allianceGuild.rank : null;
+                  return (
+                    <li key={m.id}>
+                      <div>
+                        <strong>{m.accountName}</strong>
+                        {allianceRank && (
+                          <span style={{ 
+                            marginLeft: '8px', 
+                            fontSize: '0.8rem', 
+                            padding: '1px 6px', 
+                            borderRadius: '4px', 
+                            background: 'rgba(255,255,255,0.1)', 
+                            color: '#66FCF1',
+                            border: '1px solid rgba(102, 252, 241, 0.2)'
+                          }}>
+                            {allianceRank}
+                          </span>
+                        )}
+                        <div className="guild-tag" style={{ marginTop: '2px', fontSize: '0.8rem' }}>
+                          {(m.guilds || []).map((mg: any) => `[${mg.tag}]`).join(' ')}
+                        </div>
+                      </div>
+                      <Link href={`/members/${m.id}`} className="btn-small">Profil</Link>
+                    </li>
+                  );
+                })}
               </ul>
             )}
           </div>
