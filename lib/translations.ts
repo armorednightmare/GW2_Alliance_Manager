@@ -86,7 +86,6 @@ export const translations = {
     wvwStatus: "WvW Vertreten",
     yes: "Ja",
     no: "Nein",
-    profile: "Profil",
 
     // Admin
     adminTitle: "Administration",
@@ -187,7 +186,6 @@ export const translations = {
     wvwStatus: "WvW Representing",
     yes: "Yes",
     no: "No",
-    profile: "Profile",
 
     // Admin
     adminTitle: "Administration",
