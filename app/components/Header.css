@@ -80,3 +80,46 @@ button, .btn-login, .btn-logout {
   box-shadow: 0 0 20px rgba(102, 252, 241, 0.6);
   transform: scale(1.05);
 }
+
+/* ── Language Switcher ─────────────────────────────────────── */
+.lang-switcher {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 0.25rem 0.35rem;
+}
+
+.lang-btn {
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  padding: 0.2rem 0.35rem;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0.35;
+  transition: opacity 0.2s ease, transform 0.2s ease, background 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.lang-btn:hover {
+  opacity: 0.75;
+  transform: scale(1.15);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.lang-btn--active {
+  opacity: 1 !important;
+  background: rgba(102, 252, 241, 0.12);
+  box-shadow: 0 0 8px rgba(102, 252, 241, 0.25);
+  transform: scale(1.05);
+}
+
+.lang-btn--active:hover {
+  transform: scale(1.15);
+}

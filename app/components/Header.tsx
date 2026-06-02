@@ -5,6 +5,7 @@ import Link from "next/link";
 import Image from "next/image";
 import "./Header.css";
 import { useSidebar } from "./SidebarContext";
+import { useLanguage } from "./LanguageContext";
 
 interface HeaderProps {
   allianceName?: string;
@@ -14,6 +15,7 @@ interface HeaderProps {
 export default function Header({ allianceName = "Alliance Manager", logoUrl }: HeaderProps) {
   const { data: session } = useSession();
   const { isOpen, toggle } = useSidebar();
+  const { lang, setLang, t } = useLanguage();
 
   return (
     <header className="main-header">
@@ -23,7 +25,7 @@ export default function Header({ allianceName = "Alliance Manager", logoUrl }: H
           <button
             className={`sidebar-toggle${isOpen ? " sidebar-toggle--active" : ""}`}
             onClick={toggle}
-            aria-label={isOpen ? "Navigation schließen" : "Navigation öffnen"}
+            aria-label={isOpen ? t("closeNav") : t("openNav")}
             aria-expanded={isOpen}
           >
             <span />
@@ -45,16 +47,39 @@ export default function Header({ allianceName = "Alliance Manager", logoUrl }: H
           <h2 style={{ margin: 0 }}>{allianceName}</h2>
         </Link>
       </div>
+
       <div className="auth-area">
+        {/* Language switcher */}
+        <div className="lang-switcher" aria-label="Language switcher">
+          <button
+            id="lang-de"
+            className={`lang-btn${lang === "de" ? " lang-btn--active" : ""}`}
+            onClick={() => setLang("de")}
+            title="Deutsch"
+            aria-pressed={lang === "de"}
+          >
+            🇩🇪
+          </button>
+          <button
+            id="lang-en"
+            className={`lang-btn${lang === "en" ? " lang-btn--active" : ""}`}
+            onClick={() => setLang("en")}
+            title="English"
+            aria-pressed={lang === "en"}
+          >
+            🇬🇧
+          </button>
+        </div>
+
         {session ? (
           <>
             <span className="user-greeting">
-              Eingeloggt als {session.user?.name || session.user?.email} ({(session.user as any)?.role})
+              {t("loggedInAs")} {session.user?.name || session.user?.email} ({(session.user as any)?.role})
             </span>
-            <button className="btn-logout" onClick={() => signOut()}>Logout</button>
+            <button className="btn-logout" onClick={() => signOut()}>{t("logout")}</button>
           </>
         ) : (
-          <Link href="/login" className="btn-login">Login</Link>
+          <Link href="/login" className="btn-login">{t("login")}</Link>
         )}
       </div>
     </header>
