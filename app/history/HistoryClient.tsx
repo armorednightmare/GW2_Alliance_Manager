@@ -15,7 +15,7 @@ function getEventColor(eventType: string) {
   return "rgba(255,255,255,0.1)";
 }
 
-export default function HistoryClient({ initialHistory, initialTotal }: { initialHistory: any[], initialTotal: number }) {
+export default function HistoryClient({ initialHistory, initialTotal, unauthorized = false }: { initialHistory: any[], initialTotal: number, unauthorized?: boolean }) {
   const { lang, t } = useLanguage();
   const highlightedRef = useRef<HTMLTableRowElement | null>(null);
 
@@ -30,6 +30,7 @@ export default function HistoryClient({ initialHistory, initialTotal }: { initia
 
   // Highlight hash logic
   useEffect(() => {
+    if (unauthorized) return;
     setIsMounted(true);
     const hash = window.location.hash;
     if (!hash) return;
@@ -44,10 +45,11 @@ export default function HistoryClient({ initialHistory, initialTotal }: { initia
       }, 4000);
       return () => clearTimeout(timer);
     }
-  }, []);
+  }, [unauthorized]);
 
   // Sync data whenever page, limit, or search change
   useEffect(() => {
+    if (unauthorized) return;
     if (isFirstMount.current) {
       isFirstMount.current = false;
       return;
@@ -63,12 +65,26 @@ export default function HistoryClient({ initialHistory, initialTotal }: { initia
     }, 300);
 
     return () => clearTimeout(delayDebounceFn);
-  }, [page, limit, search]);
+  }, [page, limit, search, unauthorized]);
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
 
+  if (unauthorized) {
+    return (
+      <div key={lang}>
+        <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)", margin: "0 0 0.5rem 0" }}>{t("historyTitle")}</h1>
+        <p style={{ opacity: 0.8 }}>{t("unauthorizedHistory")}</p>
+      </div>
+    );
+  }
+
   return (
     <div>
+      <div key={lang} style={{ marginBottom: "1.5rem" }}>
+        <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)", margin: "0 0 0.5rem 0" }}>{t("historyTitle")}</h1>
+        <p style={{ opacity: 0.8, margin: 0 }}>{t("historySubtitle")}</p>
+      </div>
+
       <div style={{ marginBottom: "1.5rem", display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap", justifyContent: "space-between" }}>
         
         {/* Left side: Search & Total */}
