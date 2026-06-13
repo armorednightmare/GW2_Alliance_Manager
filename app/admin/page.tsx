@@ -37,7 +37,7 @@ export default async function AdminPage() {
 
   // --- Data Fetching ---
   const settingsSnapshot = await db.collection("settings").doc("system").get();
-  const settings = settingsSnapshot.exists ? settingsSnapshot.data() : null;
+  const settings = settingsSnapshot.exists ? sanitizeData(settingsSnapshot.data()) : null;
 
   const allianceGuildSnapshot = await db.collection("guilds").where("isAllianceGuild", "==", true).limit(1).get();
   const allianceGuildDoc = allianceGuildSnapshot.empty ? null : allianceGuildSnapshot.docs[0];
@@ -61,7 +61,7 @@ export default async function AdminPage() {
   let users: any[] = [];
   if (isHigherStaff(user)) {
     const usersSnapshot = await db.collection("users").orderBy("createdAt", "desc").get();
-    users = await Promise.all(usersSnapshot.docs.map(async (doc) => {
+    const rawUsers = await Promise.all(usersSnapshot.docs.map(async (doc) => {
         const u = doc.data();
         let memberName = "";
         if (u.memberId) {
@@ -77,11 +77,12 @@ export default async function AdminPage() {
             managedGuilds: (u.managedGuildIds || []).map((id: string) => ({ id }))
         };
     }));
+    users = sanitizeData(rawUsers);
   }
 
   // Full Guild list for User Management dropdowns
   const allGuildsSnapshot = await db.collection("guilds").orderBy("name", "asc").get();
-  const allGuilds = allGuildsSnapshot.docs.map(doc => {
+  const rawAllGuilds = allGuildsSnapshot.docs.map(doc => {
     const data = doc.data();
     return {
       id: doc.id,
@@ -90,6 +91,7 @@ export default async function AdminPage() {
       updatedAt: data.updatedAt?.toDate ? data.updatedAt.toDate().toISOString() : data.updatedAt,
     };
   });
+  const allGuilds = sanitizeData(rawAllGuilds);
 
   // Guilds: Filtered for the current user's view in Guild Management
   const subGuildIds = user.subGuildIds || [];
@@ -100,7 +102,7 @@ export default async function AdminPage() {
 
   // Roles: only for Higher Staff
   const manualRoles = isHigherStaff(user)
-    ? (await db.collection("roles").orderBy("name", "asc").get()).docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    ? sanitizeData((await db.collection("roles").orderBy("name", "asc").get()).docs.map(doc => ({ id: doc.id, ...doc.data() })))
     : [];
 
 
