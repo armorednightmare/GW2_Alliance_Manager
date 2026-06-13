@@ -76,21 +76,23 @@ export default async function HistoryPage() {
         if (inManaged) return true;
 
         // Rule 2: Alliance-wide events (exclude comments)
-        const isComment = h.type === "COMMENT_ADDED" || h.type === "COMMENT_CHANGED";
+        const eventType = h.eventType || h.type;  // sync uses eventType, import uses type
+        const isComment = eventType === "COMMENT_ADDED" || eventType === "COMMENT_CHANGED";
         if (isComment) return false;
 
         const isAllianceRelevant = h.member.isAllianceMember || h.member.status === "INACTIVE_LEFT" || h.member.status === "INACTIVE_KICKED";
         if (!isAllianceRelevant) return false;
 
-        const isPublicEvent = ["RANK_CHANGE", "WVW_STATUS_CHANGE", "JOINED", "LEFT"].includes(h.type);
+        const isPublicEvent = ["RANK_CHANGE", "WVW_STATUS_CHANGE", "JOINED", "LEFT"].includes(eventType);
         if (isPublicEvent) return true;
 
         return false;
     });
   }
 
-  const initialTotalSnapshot = await db.collectionGroup("history").count().get();
-  const initialTotal = initialTotalSnapshot.data().count;
+  // Use the filtered count as the total so pagination is correct on first render.
+  // (The client will refetch with correct totals on any pagination interaction anyway.)
+  const initialTotal = filteredHistory.length;
 
   // Mask rank changes
   const maskedHistory = filteredHistory.map(h => {
