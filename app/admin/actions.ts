@@ -710,7 +710,8 @@ export async function executeMemberImport(selectedItems: any[], overwriteConflic
           name: allianceGuild.name,
           tag: allianceGuild.tag,
           rank: data.rank || "Member",
-          joinedAt: memberData.joinedAt || new Date()
+          joinedAt: memberData.joinedAt || new Date(),
+          isAllianceGuild: true
         };
 
         if (allianceIdx >= 0) updatedGuilds[allianceIdx] = allianceEntry;
@@ -744,6 +745,19 @@ export async function executeMemberImport(selectedItems: any[], overwriteConflic
               rank: "Member",
               joinedAt: new Date()
             });
+          } else {
+            // Still in this guild - Check for rank or WvW representation changes
+            const guildMembership = updatedGuilds[secIdx];
+            const hasRankChanged = guildMembership.rank !== (data.rank || "Member");
+            const needsAllianceFlagHeal = secondaryGuild.isAllianceGuild && !guildMembership.isAllianceGuild;
+
+            if (hasRankChanged || needsAllianceFlagHeal) {
+               updatedGuilds[secIdx] = { 
+                 ...guildMembership, 
+                 rank: data.rank || "Member", 
+                 isAllianceGuild: secondaryGuild.isAllianceGuild || false 
+               };
+            }
           }
         }
       }

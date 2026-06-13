@@ -5,6 +5,12 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { canEditMember, AuthUser } from "@/lib/permissions";
 
+/** Fetch the Firestore IDs of all guilds marked as alliance guilds. */
+async function getAllianceGuildIds(): Promise<string[]> {
+  const snap = await db.collection("guilds").where("isAllianceGuild", "==", true).get();
+  return snap.docs.map((d) => d.id);
+}
+
 export async function updateMemberComment(data: FormData) {
   const session = (await getServerSession(authOptions)) as { user: AuthUser } | null;
   const memberId = data.get("memberId") as string;
@@ -21,7 +27,8 @@ export async function updateMemberComment(data: FormData) {
   const settingsDoc = await db.collection("settings").doc("system").get();
   const editableAllianceRanks = settingsDoc.data()?.editableAllianceRanks || [];
 
-  const allianceMembership = (oldMem.guilds || []).find((g: any) => g.isAllianceGuild);
+  const allianceGuildIds = await getAllianceGuildIds();
+  const allianceMembership = (oldMem.guilds || []).find((g: any) => allianceGuildIds.includes(g.id));
   const allianceRank = allianceMembership ? allianceMembership.rank : null;
 
   if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember, allianceRank, editableAllianceRanks)) {
@@ -86,7 +93,8 @@ export async function addMemberToManualGuild(data: FormData) {
   const settingsDoc = await db.collection("settings").doc("system").get();
   const editableAllianceRanks = settingsDoc.data()?.editableAllianceRanks || [];
 
-  const allianceMembership = (oldMem.guilds || []).find((g: any) => g.isAllianceGuild);
+  const allianceGuildIds = await getAllianceGuildIds();
+  const allianceMembership = (oldMem.guilds || []).find((g: any) => allianceGuildIds.includes(g.id));
   const allianceRank = allianceMembership ? allianceMembership.rank : null;
 
   if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember, allianceRank, editableAllianceRanks)) {
@@ -142,7 +150,8 @@ export async function removeMemberFromManualGuild(data: FormData) {
   const settingsDoc = await db.collection("settings").doc("system").get();
   const editableAllianceRanks = settingsDoc.data()?.editableAllianceRanks || [];
 
-  const allianceMembership = (memberData.guilds || []).find((g: any) => g.isAllianceGuild);
+  const allianceGuildIds = await getAllianceGuildIds();
+  const allianceMembership = (memberData.guilds || []).find((g: any) => allianceGuildIds.includes(g.id));
   const allianceRank = allianceMembership ? allianceMembership.rank : null;
 
   if (!canEditMember(session?.user as any, memberGuildIds, memberData.isAllianceMember, memberData.leftAt, memberData.pastGuildIds, memberData.wasAllianceMember, allianceRank, editableAllianceRanks)) {
@@ -205,7 +214,8 @@ export async function updateDiscordName(data: FormData) {
   const settingsDoc = await db.collection("settings").doc("system").get();
   const editableAllianceRanks = settingsDoc.data()?.editableAllianceRanks || [];
 
-  const allianceMembership = (oldMem.guilds || []).find((g: any) => g.isAllianceGuild);
+  const allianceGuildIds = await getAllianceGuildIds();
+  const allianceMembership = (oldMem.guilds || []).find((g: any) => allianceGuildIds.includes(g.id));
   const allianceRank = allianceMembership ? allianceMembership.rank : null;
 
   const isMe = session?.user?.id && session.user.id === linkedUser?.id;

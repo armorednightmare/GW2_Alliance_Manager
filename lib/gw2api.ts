@@ -144,8 +144,10 @@ export async function syncAllGuildRosters() {
           const guildMembership = member.guilds.find((g: any) => g.id === guild.id);
           const hasRankChanged = guildMembership.rank !== apiData.rank;
           const hasWvwChanged = isAllianceGuild && (member.wvwMember !== apiData.wvw_member);
+          // Heal legacy data: isAllianceGuild flag missing from the member's denormalized guild entry
+          const needsAllianceFlagHeal = guild.isAllianceGuild && !guildMembership.isAllianceGuild;
 
-          if (hasRankChanged || hasWvwChanged) {
+          if (hasRankChanged || hasWvwChanged || needsAllianceFlagHeal) {
             const updatedGuilds = member.guilds.map((g: any) => 
               g.id === guild.id ? { ...g, rank: apiData.rank, lastUpdatedAt: new Date(), isAllianceGuild: guild.isAllianceGuild || false } : g
             );

@@ -73,7 +73,9 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
   const settings = settingsSnapshot.exists ? settingsSnapshot.data() : null;
   const editableAllianceRanks = settings?.editableAllianceRanks || [];
 
-  const allianceMembership = (member.guilds || []).find((g: any) => g.isAllianceGuild);
+  const allianceGuildSnap = await db.collection("guilds").where("isAllianceGuild", "==", true).get();
+  const allianceGuildIds = allianceGuildSnap.docs.map((d) => d.id);
+  const allianceMembership = (member.guilds || []).find((g: any) => allianceGuildIds.includes(g.id));
   const allianceRank = allianceMembership ? allianceMembership.rank : null;
 
   // --- Visibility Check ---
