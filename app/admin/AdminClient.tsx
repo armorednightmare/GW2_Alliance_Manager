@@ -5,6 +5,7 @@ import UserManagementClient from "./UserManagementClient";
 import GuildManagementClient from "./GuildManagementClient";
 import RoleManagementClient from "./RoleManagementClient";
 import ImportManagementClient from "./ImportManagementClient";
+import { saveThemeSettings, saveSyncSettings } from "./actions";
 
 const PANEL_STYLE = {
   marginTop: "2rem",
@@ -27,9 +28,7 @@ export default function AdminClient({
   canManageGuildsFlag,
   canEditThemeFlag,
   isHigherStaffFlag,
-  allianceRanks,
-  saveSyncSettingsAction,
-  saveThemeSettingsAction
+  allianceRanks
 }: any) {
   const { t } = useLanguage();
 
@@ -75,7 +74,7 @@ export default function AdminClient({
           {/* Global settings only for Higher Staff */}
           {isHigherStaffFlag && (
             <div style={{ marginTop: "2rem", paddingTop: "1.5rem", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-              <form action={saveSyncSettingsAction} style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
+              <form action={saveSyncSettings} style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
                 <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem" }}>{t("adminAutoSync")}</h3>
                 <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.8 }}>
                   <strong>{t("adminLastSync")}</strong> {settings?.lastSync?.toDate ? settings.lastSync.toDate().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' }) : t("adminNever")}
@@ -154,7 +153,7 @@ export default function AdminClient({
       {canEditThemeFlag && (
         <div style={PANEL_STYLE}>
           <h2 style={{ marginTop: 0 }}>{t("adminThemeLayout")}</h2>
-          <form action={saveThemeSettingsAction} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "420px", marginTop: "1rem" }}>
+          <form action={saveThemeSettings} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "420px", marginTop: "1rem" }}>
              <div>
               <label style={{ display: "block", marginBottom: "0.4rem", fontSize: "0.85rem" }}>{t("adminAllianceName")}</label>
               <input 

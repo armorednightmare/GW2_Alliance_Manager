@@ -1,5 +1,4 @@
 export const dynamic = 'force-dynamic';
-import { saveThemeSettings, saveSyncSettings } from "./actions";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { redirect } from "next/navigation";
@@ -122,8 +121,6 @@ export default async function AdminPage() {
       canEditThemeFlag={canEditTheme(user)}
       isHigherStaffFlag={isHigherStaff(user)}
       allianceRanks={allianceRanks}
-      saveSyncSettingsAction={saveSyncSettings}
-      saveThemeSettingsAction={saveThemeSettings}
     />
   );
 }
