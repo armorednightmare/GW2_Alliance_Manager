@@ -8,6 +8,7 @@ import UserManagementClient from "./UserManagementClient";
 import GuildManagementClient from "./GuildManagementClient";
 import RoleManagementClient from "./RoleManagementClient";
 import ImportManagementClient from "./ImportManagementClient";
+import AdminClient from "./AdminClient";
 
 import { canManageUsers, canManageGuilds, canEditTheme, isHigherStaff } from "@/lib/permissions";
 import { sanitizeData } from "@/lib/utils";
@@ -39,8 +40,22 @@ export default async function AdminPage() {
   const settings = settingsSnapshot.exists ? settingsSnapshot.data() : null;
 
   const allianceGuildSnapshot = await db.collection("guilds").where("isAllianceGuild", "==", true).limit(1).get();
-  const allianceGuild = allianceGuildSnapshot.empty ? null : allianceGuildSnapshot.docs[0].data();
+  const allianceGuildDoc = allianceGuildSnapshot.empty ? null : allianceGuildSnapshot.docs[0];
+  const allianceGuild = allianceGuildDoc ? allianceGuildDoc.data() : null;
   const defaultAllianceName = allianceGuild ? `${allianceGuild.name} [${allianceGuild.tag}]` : "Allianz Manager";
+  
+  let allianceRanks: string[] = [];
+  if (allianceGuild && allianceGuild.leaderToken && allianceGuildDoc) {
+    try {
+      const res = await fetch(`https://api.guildwars2.com/v2/guild/${allianceGuildDoc.id}/ranks?access_token=${allianceGuild.leaderToken}`);
+      if (res.ok) {
+        const ranks = await res.json();
+        allianceRanks = ranks.map((r: any) => r.id);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
   
   // Users: only for Higher Staff
   let users: any[] = [];
@@ -91,136 +106,22 @@ export default async function AdminPage() {
 
 
   return (
-    <div>
-      <h1>Admin Panel {user.role === "GUILD_LEADER" && "(Eingeschränkt)"}</h1>
-      {user.role === "GUILD_LEADER" && (
-        <p style={{ opacity: 0.7, marginBottom: "2rem" }}>
-          Du verwaltest exklusiv deine zugewiesenen Gilden ({guilds.length}).
-        </p>
-      )}
-
-      {/* ── User Management (Higher Staff only) ── */}
-      {canManageUsers(user) && (
-        <>
-          <div style={PANEL_STYLE}>
-            <h2 style={{ margin: "0 0 0.5rem 0" }}>👥 User Verwaltung</h2>
-            <UserManagementClient users={sanitizeData(users)} guilds={sanitizeData(allGuilds)} />
-          </div>
-
-          <div style={PANEL_STYLE}>
-            <h2 style={{ margin: "0 0 0.5rem 0" }}>📦 Daten Import (Excel)</h2>
-            <p style={{ opacity: 0.7, margin: "0 0 1rem 0", fontSize: "0.9rem" }}>
-              Lade eine Excel-Datei hoch, um Mitglieder-Daten (Rang, Join-Datum, Discord-Name, Kommentar) massenweise zu aktualisieren oder anzulegen.
-            </p>
-            <ImportManagementClient />
-          </div>
-        </>
-      )}
-
-      {/* ── Guild Management (Admins & Guild Leaders) ── */}
-      {canManageGuilds(user) && (
-        <div style={PANEL_STYLE}>
-          <h2 style={{ margin: "0 0 0.5rem 0" }}>🏰 Gilden & Sync</h2>
-          <p style={{ opacity: 0.7, margin: "0 0 0.5rem 0", fontSize: "0.9rem" }}>
-            {user.role === "GUILD_LEADER" 
-              ? "Verwalte die API-Keys deiner Gilden und starte manuelle Synchronisationen."
-              : "Gilden mit Leader API Key hinterlegen und einen manuellen Roster-Sync auslösen."
-            }
-          </p>
-          <GuildManagementClient guilds={sanitizeData(guilds)} session={sanitizeData(session)} />
-
-          {/* Global settings only for Higher Staff */}
-          {isHigherStaff(user) && (
-            <div style={{ marginTop: "2rem", paddingTop: "1.5rem", borderTop: "1px solid rgba(255,255,255,0.1)" }}>
-              <form action={saveSyncSettings} style={{ padding: "1rem", background: "rgba(255,255,255,0.05)", borderRadius: "8px", border: "1px solid rgba(255,255,255,0.1)" }}>
-                <h3 style={{ margin: "0 0 0.5rem 0", fontSize: "0.95rem" }}>⚙️ Background Auto-Sync</h3>
-                <p style={{ margin: 0, fontSize: "0.85rem", opacity: 0.8 }}>
-                  <strong>Letzter erfolgreicher Sync:</strong> {settings?.lastSync?.toDate ? settings.lastSync.toDate().toLocaleString('de-DE', { timeZone: 'Europe/Berlin' }) : 'Noch nie'}
-                </p>
-                <div style={{ display: "flex", alignItems: "center", gap: "0.75rem", marginTop: "1rem" }}>
-                  <select 
-                    name="apiSyncInterval" 
-                    defaultValue={settings?.apiSyncInterval || 10}
-                    style={{ 
-                      padding: "0.4rem 0.6rem", 
-                      background: "#1a1a1a", 
-                      color: "white", 
-                      border: "1px solid rgba(255,255,255,0.2)", 
-                      borderRadius: "4px",
-                      colorScheme: "dark"
-                    }}
-                  >
-                    <option value="10">Alle 10 Minuten (Standard)</option>
-                    <option value="20">Alle 20 Minuten</option>
-                    <option value="30">Alle 30 Minuten</option>
-                    <option value="60">Alle 1 Stunde</option>
-                    <option value="120">Alle 2 Stunden</option>
-                    <option value="240">Alle 4 Stunden</option>
-                    <option value="480">Alle 8 Stunden</option>
-                    <option value="720">Alle 12 Stunden</option>
-                    <option value="1440">Alle 24 Stunden</option>
-                  </select>
-                  <span style={{ fontSize: "0.85rem", opacity: 0.8 }}>Mindest-Abstand zwischen Roster-Syncs</span>
-                </div>
-                <div style={{ marginTop: "1rem", paddingTop: "1rem", borderTop: "1px dashed rgba(255,255,255,0.1)" }}>
-                  <label style={{ display: "flex", alignItems: "center", gap: "0.5rem", cursor: "pointer" }}>
-                    <input 
-                      type="checkbox" 
-                      name="allowGuildLeadersToEditRecruits" 
-                      value="true" 
-                      defaultChecked={settings?.allowGuildLeadersToEditRecruits === true} 
-                    />
-                    <span>Gildenleiter dürfen Rekruten (StartingRole) der Allianz bearbeiten</span>
-                  </label>
-                  <p style={{ margin: "0.5rem 0 0 1.5rem", fontSize: "0.8rem", opacity: 0.7 }}>
-                    Erlaubt es regionalen Leitern, Profile von Mitgliedern anzupassen, die aktuell den Standard-Rang in der Hauptgilde haben.
-                  </p>
-                </div>
-                <button type="submit" className="btn-primary" style={{ marginTop: "1.5rem", padding: "0.5rem 1.5rem" }}>Einstellungen Speichern</button>
-                <p style={{ margin: "0.5rem 0 0 0", fontSize: "0.75rem", opacity: 0.6 }}>
-                  Hinweis: Der Cloud Scheduler muss auf mindestens das gleiche Intervall (z.B. <code style={{ background: "rgba(0,0,0,0.3)", padding: "2px 4px", borderRadius: "3px" }}>*/10 * * * *</code>) eingestellt sein.
-                </p>
-              </form>
-            </div>
-          )}
-
-
-        </div>
-      )}
-
-      {/* ── Theme Settings (Admin only) ── */}
-      {canEditTheme(user) && (
-        <div style={PANEL_STYLE}>
-          <h2 style={{ marginTop: 0 }}>🎨 Theme &amp; Layout</h2>
-          <form action={saveThemeSettings} style={{ display: "flex", flexDirection: "column", gap: "1rem", maxWidth: "420px", marginTop: "1rem" }}>
-             <div>
-              <label style={{ display: "block", marginBottom: "0.4rem", fontSize: "0.85rem" }}>Allianz Name</label>
-              <input 
-                name="allianceName" 
-                defaultValue={settings?.allianceName || ""} 
-                placeholder={defaultAllianceName}
-                style={{ width: "100%", padding: "0.5rem", background: "rgba(255,255,255,0.08)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px" }} 
-              />
-              {!settings?.allianceName && (
-                <p style={{ fontSize: "0.75rem", opacity: 0.6, marginTop: "0.3rem" }}>
-                  Aktueller Fallback: <strong>{defaultAllianceName}</strong>
-                </p>
-              )}
-            </div>
-            <div>
-              <label style={{ display: "block", marginBottom: "0.4rem", fontSize: "0.85rem" }}>Allianz Logo URL</label>
-              <input name="logoUrl" defaultValue={settings?.logoUrl || ""} style={{ width: "100%", padding: "0.5rem", background: "rgba(255,255,255,0.08)", color: "white", border: "1px solid rgba(255,255,255,0.2)", borderRadius: "4px" }} />
-            </div>
-            <div style={{ display: "flex", gap: "1rem" }}>
-              <div><label>Primär</label><input type="color" name="colorPrimary" defaultValue={settings?.colorPrimary || "#2c3e50"} /></div>
-              <div><label>Akzent</label><input type="color" name="colorAccent" defaultValue={settings?.colorAccent || "#27ae60"} /></div>
-              <div><label>Hintergrund</label><input type="color" name="colorBg" defaultValue={settings?.colorBg || "#121212"} /></div>
-            </div>
-            <button type="submit" className="btn-primary">Speichern</button>
-          </form>
-          <RoleManagementClient roles={sanitizeData(manualRoles)} />
-        </div>
-      )}
-    </div>
+    <AdminClient 
+      user={user}
+      users={users}
+      guilds={guilds}
+      allGuilds={allGuilds}
+      settings={settings}
+      defaultAllianceName={defaultAllianceName}
+      manualRoles={manualRoles}
+      session={session}
+      canManageUsersFlag={canManageUsers(user)}
+      canManageGuildsFlag={canManageGuilds(user)}
+      canEditThemeFlag={canEditTheme(user)}
+      isHigherStaffFlag={isHigherStaff(user)}
+      allianceRanks={allianceRanks}
+      saveSyncSettingsAction={saveSyncSettings}
+      saveThemeSettingsAction={saveThemeSettings}
+    />
   );
 }

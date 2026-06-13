@@ -39,8 +39,8 @@ export function canEditMember(
   leftAt?: any,
   pastGuildIds?: string[],
   wasAllianceMember?: boolean,
-  isAllianceRecruit?: boolean,
-  allowGuildLeadersToEditRecruits?: boolean
+  allianceRank?: string,
+  editableAllianceRanks?: string[]
 ): boolean {
   if (!user) return false;
   if (user.role === "ADMIN") return true;
@@ -59,7 +59,7 @@ export function canEditMember(
   }
   
   if (user.role === "GUILD_LEADER") {
-    if (isAllianceRecruit && allowGuildLeadersToEditRecruits) return true;
+    if (allianceRank && editableAllianceRanks?.includes(allianceRank)) return true;
     return isGuildLeaderForMember;
   }
   

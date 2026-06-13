@@ -80,12 +80,12 @@ export async function saveSyncSettings(data: FormData) {
   const existing = doc.exists ? doc.data() : null;
 
   const apiSyncInterval = parseInt(data.get("apiSyncInterval") as string) || existing?.apiSyncInterval || 10;
-  const allowGuildLeadersToEditRecruits = data.get("allowGuildLeadersToEditRecruits") === "true";
+  const editableAllianceRanks = data.getAll("editableAllianceRanks") as string[];
 
   await settingsRef.set({
     ...existing,
     apiSyncInterval,
-    allowGuildLeadersToEditRecruits
+    editableAllianceRanks
   }, { merge: true });
 
   revalidatePath("/admin");

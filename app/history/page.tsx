@@ -18,12 +18,7 @@ export default async function HistoryPage() {
   const visibility = await getHistoryVisibilityFilter(user);
 
   if (visibility.none) {
-    return (
-        <div>
-            <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)" }}>Allianz Historie</h1>
-            <p>Nicht autorisiert, die Historie zu sehen.</p>
-        </div>
-    );
+    return <HistoryClient initialHistory={[]} initialTotal={0} unauthorized={true} />;
   }
 
   // Fetch from collectionGroup - limit set to 200 to protect Firebase read quotas
@@ -118,9 +113,6 @@ export default async function HistoryPage() {
 
   return (
     <div>
-      <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)" }}>Allianz Historie</h1>
-      <p style={{ opacity: 0.8 }}>Hier sehen Sie die Aktivitäten aller Mitglieder (Beitritte, Austritte, Änderungen des WvW-Status).</p>
-
       <div className="table-wrapper">
         <HistoryClient initialHistory={maskedHistory} initialTotal={initialTotal} />
       </div>

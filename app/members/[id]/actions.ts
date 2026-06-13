@@ -19,9 +19,12 @@ export async function updateMemberComment(data: FormData) {
   const memberGuildIds = (oldMem.guilds || []).map((g: any) => g.id);
 
   const settingsDoc = await db.collection("settings").doc("system").get();
-  const allowRecruitEdits = settingsDoc.data()?.allowGuildLeadersToEditRecruits === true;
+  const editableAllianceRanks = settingsDoc.data()?.editableAllianceRanks || [];
 
-  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember, oldMem.isAllianceRecruit, allowRecruitEdits)) {
+  const allianceMembership = (oldMem.guilds || []).find((g: any) => g.isAllianceGuild);
+  const allianceRank = allianceMembership ? allianceMembership.rank : null;
+
+  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember, allianceRank, editableAllianceRanks)) {
     throw new Error("Nicht autorisiert, dieses Mitglied zu bearbeiten.");
   }
 
@@ -81,9 +84,12 @@ export async function addMemberToManualGuild(data: FormData) {
   const memberGuildIds = (oldMem.guilds || []).map((g: any) => g.id);
 
   const settingsDoc = await db.collection("settings").doc("system").get();
-  const allowRecruitEdits = settingsDoc.data()?.allowGuildLeadersToEditRecruits === true;
+  const editableAllianceRanks = settingsDoc.data()?.editableAllianceRanks || [];
 
-  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember, oldMem.isAllianceRecruit, allowRecruitEdits)) {
+  const allianceMembership = (oldMem.guilds || []).find((g: any) => g.isAllianceGuild);
+  const allianceRank = allianceMembership ? allianceMembership.rank : null;
+
+  if (!canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember, allianceRank, editableAllianceRanks)) {
     throw new Error("Nicht autorisiert.");
   }
 
@@ -134,9 +140,12 @@ export async function removeMemberFromManualGuild(data: FormData) {
   const memberGuildIds = (memberData.guilds || []).map((g: any) => g.id);
 
   const settingsDoc = await db.collection("settings").doc("system").get();
-  const allowRecruitEdits = settingsDoc.data()?.allowGuildLeadersToEditRecruits === true;
+  const editableAllianceRanks = settingsDoc.data()?.editableAllianceRanks || [];
 
-  if (!canEditMember(session?.user as any, memberGuildIds, memberData.isAllianceMember, memberData.leftAt, memberData.pastGuildIds, memberData.wasAllianceMember, memberData.isAllianceRecruit, allowRecruitEdits)) {
+  const allianceMembership = (memberData.guilds || []).find((g: any) => g.isAllianceGuild);
+  const allianceRank = allianceMembership ? allianceMembership.rank : null;
+
+  if (!canEditMember(session?.user as any, memberGuildIds, memberData.isAllianceMember, memberData.leftAt, memberData.pastGuildIds, memberData.wasAllianceMember, allianceRank, editableAllianceRanks)) {
     throw new Error("Nicht autorisiert.");
   }
 
@@ -194,10 +203,13 @@ export async function updateDiscordName(data: FormData) {
   const linkedUser = linkedUserSnapshot.empty ? null : linkedUserSnapshot.docs[0];
 
   const settingsDoc = await db.collection("settings").doc("system").get();
-  const allowRecruitEdits = settingsDoc.data()?.allowGuildLeadersToEditRecruits === true;
+  const editableAllianceRanks = settingsDoc.data()?.editableAllianceRanks || [];
+
+  const allianceMembership = (oldMem.guilds || []).find((g: any) => g.isAllianceGuild);
+  const allianceRank = allianceMembership ? allianceMembership.rank : null;
 
   const isMe = session?.user?.id && session.user.id === linkedUser?.id;
-  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember, oldMem.isAllianceRecruit, allowRecruitEdits);
+  const hasEditPerms = canEditMember(session?.user as any, memberGuildIds, oldMem.isAllianceMember, oldMem.leftAt, oldMem.pastGuildIds, oldMem.wasAllianceMember, allianceRank, editableAllianceRanks);
 
   if (!isMe && !hasEditPerms) {
     throw new Error("Nicht autorisiert, den Discord-Namen dieses Mitglieds zu bearbeiten.");

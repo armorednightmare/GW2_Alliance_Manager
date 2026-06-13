@@ -188,6 +188,11 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: "2rem" }}>
       
+      <div>
+        <h1 style={{ textShadow: "0 0 15px rgba(102, 252, 241, 0.4)", margin: "0 0 0.5rem 0" }}>{t("guildsTitle")}</h1>
+        <p style={{ opacity: 0.8, margin: 0 }}>{t("guildsSubtitle")}</p>
+      </div>
+
       {/* Search Bar */}
       <div style={{ display: "flex", gap: "1rem", alignItems: "center", flexWrap: "wrap" }}>
         <input 
