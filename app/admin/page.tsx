@@ -97,7 +97,7 @@ export default async function AdminPage() {
   const subGuildIds = user.subGuildIds || [];
   let guilds = allGuilds;
   if (!isHigherStaff(user)) {
-    guilds = allGuilds.filter(g => subGuildIds.includes(g.id));
+    guilds = allGuilds.filter((g: any) => subGuildIds.includes(g.id));
   }
 
   // Roles: only for Higher Staff
