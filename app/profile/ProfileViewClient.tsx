@@ -117,7 +117,14 @@ export default function ProfileViewClient({ sanitizedUser, sanitizedMember }: { 
                       style={{ fontSize: '0.75rem', opacity: 0.6, display: 'block' }} 
                     />
                     <strong>{(item.eventType || item.type || "").replace(/_/g, ' ')}</strong>
-                    {item.newValue && <div style={{ opacity: 0.8, fontSize: '0.85rem' }}>➔ {item.newValue}</div>}
+                    {item.description && (
+                      <div style={{ opacity: 0.9, fontSize: '0.85rem', marginTop: '0.1rem' }}>
+                        {item.description}
+                      </div>
+                    )}
+                    {(!item.description || (item.eventType !== "JOINED" && item.eventType !== "LEFT" && item.eventType !== "KICKED")) && item.newValue && (
+                      <div style={{ opacity: 0.8, fontSize: '0.85rem' }}>➔ {item.newValue}</div>
+                    )}
                   </li>
               ))}
               {sanitizedMember.history.length === 0 && <p style={{ opacity: 0.5 }}>{t("noActivitiesRecorded")}</p>}

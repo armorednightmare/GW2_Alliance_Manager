@@ -174,7 +174,12 @@ export default function MemberDetailClient({
                     style={{ fontSize: '0.8rem', opacity: 0.7, display: 'block' }} 
                   />
                   <strong style={{ fontSize: '0.85rem', color: 'var(--accent-color)' }}>{(item.eventType || item.type || "UNKNOWN").replace(/_/g, ' ')}</strong>
-                  {item.oldValue || item.newValue ? (
+                  {item.description && (
+                    <div style={{ fontSize: '0.85rem', opacity: 0.9, marginTop: '0.2rem' }}>
+                      {item.description}
+                    </div>
+                  )}
+                  {(!item.description || (item.eventType !== "JOINED" && item.eventType !== "LEFT" && item.eventType !== "KICKED")) && (item.oldValue || item.newValue) ? (
                     <div style={{ marginTop: '0.2rem', fontSize: '0.9rem' }}>
                       {item.oldValue && <span style={{ opacity: 0.6, textDecoration: 'line-through' }}>{item.oldValue}</span>}
                       {item.oldValue && <span style={{ opacity: 0.6 }}> ➔ </span>}
