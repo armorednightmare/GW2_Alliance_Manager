@@ -247,7 +247,19 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
                         </div>
                       </div>
                     </td>
-                    <td>{g.hasLeaderToken ? t("syncOk") : (g.id !== "andere" ? t("syncMissing") : '')}</td>
+                    <td>
+                      {(() => {
+                        if (g.id === "andere") return "";
+                        if (g.syncStatus === "FAILED") {
+                          return (
+                            <span style={{ color: "#e74c3c", cursor: "help" }} title={g.lastSyncError || "Fehler beim Roster-Abruf"}>
+                              {t("syncFailed")}
+                            </span>
+                          );
+                        }
+                        return g.hasLeaderToken ? t("syncOk") : t("syncMissing");
+                      })()}
+                    </td>
                     <td style={{textAlign:"right", fontFamily: "monospace", fontSize: "1.1rem"}}>{g.totalActive}</td>
                     <td style={{textAlign:"right", fontFamily: "monospace", fontSize: "1.1rem"}}>{g.wvwActive}</td>
                     <td style={{textAlign:"right", width: "200px"}}>
@@ -279,7 +291,18 @@ export default function GuildsClient({ initialGuilds, totalWvwMembers, members, 
                          </div>
                       </div>
                     </td>
-                    <td style={{ borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)' }}>{g.hasLeaderToken ? t("syncOk") : t("syncMissing")}</td>
+                    <td style={{ borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)' }}>
+                      {(() => {
+                        if (g.syncStatus === "FAILED") {
+                          return (
+                            <span style={{ color: "#e74c3c", cursor: "help" }} title={g.lastSyncError || "Fehler beim Roster-Abruf"}>
+                              {t("syncFailed")}
+                            </span>
+                          );
+                        }
+                        return g.hasLeaderToken ? t("syncOk") : t("syncMissing");
+                      })()}
+                    </td>
                     <td style={{textAlign:"right", fontFamily: "monospace", fontSize: "1.1rem", borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)'}}>{g.totalActive}</td>
                     <td style={{textAlign:"right", fontFamily: "monospace", fontSize: "1.1rem", borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)'}}>{g.wvwActive}</td>
                     <td style={{textAlign:"right", width: "200px", borderBottom: '2px solid rgba(102,252,241,0.3)', borderTop: '2px solid rgba(102,252,241,0.3)'}}>

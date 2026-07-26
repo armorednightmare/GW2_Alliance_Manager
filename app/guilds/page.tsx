@@ -38,6 +38,8 @@ export default async function GuildsPage() {
       tag: g.tag,
       isAllianceGuild: g.isAllianceGuild,
       hasLeaderToken: !!g.leaderToken,
+      syncStatus: g.syncStatus || (g.leaderToken ? "OK" : "NO_TOKEN"),
+      lastSyncError: g.lastSyncError || null,
       totalActive: membersOfThisGuild.length,
       wvwActive: wvwMembers.length
     };

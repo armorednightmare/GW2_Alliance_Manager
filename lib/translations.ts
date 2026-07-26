@@ -62,6 +62,7 @@ export const translations = {
     columnShare: "Anteil (WvW)",
     syncOk: "✅ API-Key hinterlegt",
     syncMissing: "❌ Kein API-Key",
+    syncFailed: "⚠️ Sync fehlgeschlagen",
     wvwDistribution: "WvW-Verteilung",
     noGuildsFound: "Keine entsprechenden Gilden gefunden.",
 
@@ -236,6 +237,7 @@ export const translations = {
     columnShare: "Share (WvW)",
     syncOk: "✅ API key configured",
     syncMissing: "❌ No API key",
+    syncFailed: "⚠️ Sync failed",
     wvwDistribution: "WvW Distribution",
     noGuildsFound: "No matching guilds found.",
 

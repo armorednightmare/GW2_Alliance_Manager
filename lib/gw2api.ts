@@ -30,7 +30,13 @@ export async function syncAllGuildRosters() {
       // 1. Fetch Roster
       const rosterRes = await fetch(`https://api.guildwars2.com/v2/guild/${guild.id}/members?access_token=${guild.leaderToken}`);
       if (!rosterRes.ok) {
-        console.error(`Failed to fetch roster for guild ${guild.name} (${guild.id})`);
+        const errorText = `Failed to fetch roster: ${rosterRes.statusText || rosterRes.status}`;
+        console.error(`${errorText} for guild ${guild.name} (${guild.id})`);
+        await db.collection("guilds").doc(guild.id).update({
+          syncStatus: "FAILED",
+          lastSyncError: errorText,
+          lastSyncTime: new Date()
+        });
         continue;
       }
       const apiMembers: GW2Member[] = await rosterRes.json();
@@ -242,8 +248,23 @@ export async function syncAllGuildRosters() {
         syncLogs.push(`${accountName} joined ${guild.name} [${guild.tag}]`);
       }
 
+      await db.collection("guilds").doc(guild.id).update({
+        syncStatus: "OK",
+        lastSyncError: null,
+        lastSyncTime: new Date()
+      });
+
     } catch (e: any) {
       console.error(`Sync Error for guild ${guild.name}:`, e.message);
+      try {
+        await db.collection("guilds").doc(guild.id).update({
+          syncStatus: "FAILED",
+          lastSyncError: e.message || "Unbekannter Fehler",
+          lastSyncTime: new Date()
+        });
+      } catch (dbErr) {
+        console.error("Failed to write sync error to database:", dbErr);
+      }
     }
   }
   return syncLogs;
