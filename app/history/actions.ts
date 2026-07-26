@@ -74,16 +74,12 @@ export async function fetchHistoryLogs(page: number, limit: number, search: stri
     });
   }
 
-  const total = filtered.length;
-  const skip = (page - 1) * limit;
-  const paged = filtered.slice(skip, skip + limit);
-
   // Fetch guilds to ensure accurate rank visibility checks by tag
   const guildsSnap = await db.collection("guilds").get();
   const guildByTag = new Map(guildsSnap.docs.map(doc => [doc.data().tag, { id: doc.id, ...doc.data() }]));
 
-  // Mask rank changes
-  const maskedData = paged.map(h => {
+  // Filter out rank changes user doesn't have permission to see
+  const authorizedFiltered = filtered.filter(h => {
     const eventType = h.eventType || h.type;
     if (eventType === "RANK_CHANGE") {
       const tagMatch = h.newValue?.match(/\(([^)]+)\)/) || h.oldValue?.match(/\(([^)]+)\)/);
@@ -91,16 +87,16 @@ export async function fetchHistoryLogs(page: number, limit: number, search: stri
          const tag = tagMatch[1];
          const guild = guildByTag.get(tag) || h.member?.guilds?.find((mg: any) => mg.tag === tag);
          if (guild && !canSeeRank(user, guild as any)) {
-           return {
-             ...h,
-             oldValue: h.oldValue ? "" : null,
-             newValue: h.newValue ? "" : null
-           };
+           return false;
          }
       }
     }
-    return h;
+    return true;
   });
 
-  return sanitizeData({ data: maskedData, total });
+  const total = authorizedFiltered.length;
+  const skip = (page - 1) * limit;
+  const paged = authorizedFiltered.slice(skip, skip + limit);
+
+  return sanitizeData({ data: paged, total });
 }

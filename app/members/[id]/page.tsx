@@ -47,8 +47,8 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
   const guildsSnap = await db.collection("guilds").get();
   const guildByTag = new Map(guildsSnap.docs.map(doc => [doc.data().tag, { id: doc.id, ...doc.data() }]));
 
-  // Mask history RANK_CHANGE events
-  const maskedHistory = (member.history || []).map((item: any) => {
+  // Filter out rank changes user doesn't have permission to see
+  const maskedHistory = (member.history || []).filter((item: any) => {
     const eventType = item.eventType || item.type;
     if (eventType === "RANK_CHANGE") {
       // RANK_CHANGE values are formatted as "Rank (TAG)"
@@ -58,15 +58,11 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
          const tag = tagMatch[1];
          const guild = guildByTag.get(tag) || (member.guilds || []).find((mg: any) => mg.tag === tag);
          if (guild && !canSeeRank(user, guild as any)) {
-           return {
-             ...item,
-             oldValue: item.oldValue ? "" : null,
-             newValue: item.newValue ? "" : null
-           };
+           return false;
          }
       }
     }
-    return item;
+    return true;
   });
 
   const sanitizedMember = sanitizeData(member);

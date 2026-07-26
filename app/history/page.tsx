@@ -90,16 +90,12 @@ export default async function HistoryPage() {
     });
   }
 
-  // Use the filtered count as the total so pagination is correct on first render.
-  // (The client will refetch with correct totals on any pagination interaction anyway.)
-  const initialTotal = filteredHistory.length;
-
   // Fetch guilds to ensure accurate rank visibility checks by tag
   const guildsSnap = await db.collection("guilds").get();
   const guildByTag = new Map(guildsSnap.docs.map(doc => [doc.data().tag, { id: doc.id, ...doc.data() }]));
 
-  // Mask rank changes
-  const maskedHistory = filteredHistory.map(h => {
+  // Filter out rank changes user doesn't have permission to see
+  const maskedHistory = filteredHistory.filter(h => {
     const eventType = h.eventType || h.type;
     if (eventType === "RANK_CHANGE") {
       const tagMatch = h.newValue?.match(/\(([^)]+)\)/) || h.oldValue?.match(/\(([^)]+)\)/);
@@ -107,16 +103,15 @@ export default async function HistoryPage() {
          const tag = tagMatch[1];
          const guild = guildByTag.get(tag) || h.member?.guilds?.find((mg: any) => mg.tag === tag);
          if (guild && !canSeeRank(user, guild as any)) {
-           return {
-             ...h,
-             oldValue: h.oldValue ? "" : null,
-             newValue: h.newValue ? "" : null
-           };
+           return false;
          }
       }
     }
-    return h;
+    return true;
   });
+
+  // Use the filtered count as the total so pagination is correct on first render.
+  const initialTotal = maskedHistory.length;
 
   return (
     <div>
