@@ -94,13 +94,18 @@ export default async function HistoryPage() {
   // (The client will refetch with correct totals on any pagination interaction anyway.)
   const initialTotal = filteredHistory.length;
 
+  // Fetch guilds to ensure accurate rank visibility checks by tag
+  const guildsSnap = await db.collection("guilds").get();
+  const guildByTag = new Map(guildsSnap.docs.map(doc => [doc.data().tag, { id: doc.id, ...doc.data() }]));
+
   // Mask rank changes
   const maskedHistory = filteredHistory.map(h => {
-    if (h.type === "RANK_CHANGE") {
+    const eventType = h.eventType || h.type;
+    if (eventType === "RANK_CHANGE") {
       const tagMatch = h.newValue?.match(/\(([^)]+)\)/) || h.oldValue?.match(/\(([^)]+)\)/);
       if (tagMatch) {
          const tag = tagMatch[1];
-         const guild = h.member?.guilds?.find((mg: any) => mg.tag === tag);
+         const guild = guildByTag.get(tag) || h.member?.guilds?.find((mg: any) => mg.tag === tag);
          if (guild && !canSeeRank(user, guild as any)) {
            return {
              ...h,

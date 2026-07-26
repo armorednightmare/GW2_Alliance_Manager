@@ -99,16 +99,16 @@ export function isAuthorizedForGuild(user: AuthUser | null | undefined, guildId:
   return false;
 }
 
-export function canSeeRank(user: AuthUser | null | undefined, guild: { id: string, publicRanks: boolean }): boolean {
+export function canSeeRank(user: AuthUser | null | undefined, guild: { id: string, publicRanks?: boolean, isAllianceGuild?: boolean }): boolean {
   if (!user) return false;
   if (user.role === "ADMIN") return true;
   if (user.subGuildIds?.includes(guild.id)) return true; // Managed by this user
   if (user.memberGuildIds?.includes(guild.id)) return true; // Member of this guild
+  if (guild.isAllianceGuild && (user.role === "ALLIANCE_LEADER" || user.role === "GUILD_LEADER")) return true; // Main alliance guild ranks visible to leaders
 
-  // If publicRanks is true, Alliance Leader and regional Guild Leaders can see it.
-  // Otherwise, only the above (Admin & Managers) can see it.
+  // If publicRanks is true, Alliance Leader can see it.
   if (guild.publicRanks) {
-    return user.role === "ALLIANCE_LEADER" || user.role === "GUILD_LEADER";
+    return user.role === "ALLIANCE_LEADER";
   }
 
   return false;

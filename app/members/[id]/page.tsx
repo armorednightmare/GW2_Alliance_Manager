@@ -44,15 +44,19 @@ export default async function MemberDetailPage({ params }: { params: { id: strin
 
   const memberGuildIds = (member.guilds || []).map((g: any) => g.id);
 
+  const guildsSnap = await db.collection("guilds").get();
+  const guildByTag = new Map(guildsSnap.docs.map(doc => [doc.data().tag, { id: doc.id, ...doc.data() }]));
+
   // Mask history RANK_CHANGE events
   const maskedHistory = (member.history || []).map((item: any) => {
-    if (item.eventType === "RANK_CHANGE") {
+    const eventType = item.eventType || item.type;
+    if (eventType === "RANK_CHANGE") {
       // RANK_CHANGE values are formatted as "Rank (TAG)"
       // We try to extract the TAG and check permissions
       const tagMatch = item.newValue?.match(/\(([^)]+)\)/) || item.oldValue?.match(/\(([^)]+)\)/);
       if (tagMatch) {
          const tag = tagMatch[1];
-         const guild = (member.guilds || []).find((mg: any) => mg.tag === tag);
+         const guild = guildByTag.get(tag) || (member.guilds || []).find((mg: any) => mg.tag === tag);
          if (guild && !canSeeRank(user, guild as any)) {
            return {
              ...item,
