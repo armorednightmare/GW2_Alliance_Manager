@@ -72,7 +72,7 @@ export default async function Dashboard() {
           });
       }
 
-      const historyRaw = recentHistorySnapshot.docs.map((doc) => {
+      const historyRaw: any[] = recentHistorySnapshot.docs.map((doc) => {
         const data = doc.data();
         const mId = doc.ref.parent.parent?.id;
         const memberData = mId ? memberMap.get(mId) : null;
