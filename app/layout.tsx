@@ -54,6 +54,9 @@ export default async function RootLayout({
 
   return (
     <html lang="de">
+      <head>
+        {safeLogoUrl && <link rel="icon" href={safeLogoUrl} />}
+      </head>
       <body className={inter.className} style={safeCustomStyle}>
         <Providers>
           <div className="app-wrapper">
