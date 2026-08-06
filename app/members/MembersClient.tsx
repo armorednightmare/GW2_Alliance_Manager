@@ -317,6 +317,39 @@ export default function MembersClient({
               placeholder={t("searchPlaceholder")}
               value={globalSearch}
               onChange={(e) => setGlobalSearch(e.target.value)}
+              className="search-input glass-panel"
+              style={{ flex: 1, maxWidth: '100%' }}
+              autoFocus
+            />
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', fontSize: '0.9rem' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={globalSearchFields.accountName} onChange={() => toggleGlobalField('accountName')} /> {t("columnAccount")}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={globalSearchFields.guilds} onChange={() => toggleGlobalField('guilds')} /> {t("columnGuilds")}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={globalSearchFields.status} onChange={() => toggleGlobalField('status')} /> {t("columnStatus")}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={globalSearchFields.invitedBy} onChange={() => toggleGlobalField('invitedBy')} /> {t("columnInvitedBy")}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={globalSearchFields.manualRole} onChange={() => toggleGlobalField('manualRole')} /> {t("columnRoles")}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={globalSearchFields.comment} onChange={() => toggleGlobalField('comment')} /> {t("columnComment")}
+            </label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '0.3rem', cursor: 'pointer' }}>
+              <input type="checkbox" checked={globalSearchFields.discordName} onChange={() => toggleGlobalField('discordName')} /> {t("columnDiscord")}
+            </label>
+          </div>
+        </div>
+      )}
+
+      <div style={{ marginBottom: "1rem", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{opacity: 0.7, textShadow: '0 0 5px rgba(255,255,255,0.2)'}}>{filteredMembers.length} {(filteredMembers.length !== initialMembers.length) ? t("playersFiltered") : t("playersTotal")}</span>
       </div>
 
       <div className="table-wrapper">
