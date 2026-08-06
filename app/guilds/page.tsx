@@ -59,6 +59,8 @@ export default async function GuildsPage() {
     tag: "???",
     isAllianceGuild: false,
     hasLeaderToken: false,
+    syncStatus: "NO_TOKEN",
+    lastSyncError: null,
     totalActive: andereMembers.length,
     wvwActive: andereWvwMembers.length
   });
