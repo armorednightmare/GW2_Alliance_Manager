@@ -213,6 +213,7 @@ export const translations = {
     onlyActive: "Active only",
     onlyInactive: "Inactive only (Left/Kicked)",
     allGuilds: "All Guilds",
+    globalSearch: "Advanced Search",
     playersFiltered: "players filtered",
     playersTotal: "players total",
     columnAccount: "Account",
