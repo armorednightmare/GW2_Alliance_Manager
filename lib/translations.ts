@@ -37,6 +37,7 @@ export const translations = {
     onlyActive: "Nur Aktive",
     onlyInactive: "Nur Inaktive (Verlassen/Gekickt)",
     allGuilds: "Alle Gilden",
+    globalSearch: "Erweiterte Suche",
     playersFiltered: "Spieler gefiltert",
     playersTotal: "Spieler gesamt",
     columnAccount: "Account",

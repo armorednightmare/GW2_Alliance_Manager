@@ -7,6 +7,31 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getMemberVisibilityFilter, AuthUser, canSeeRank } from "@/lib/permissions";
 import { sanitizeData } from "@/lib/utils";
+import { unstable_cache } from 'next/cache';
+
+const getCachedMembers = unstable_cache(
+  async () => {
+    const membersSnapshot = await db.collection("members").orderBy("accountName", "asc").get();
+    return membersSnapshot.docs.map(doc => {
+      const m = doc.data() as any;
+      return {
+        id: doc.id,
+        ...m,
+        joinedAt: m.joinedAt?.toDate ? m.joinedAt.toDate().toISOString() : m.joinedAt,
+        leftAt: m.leftAt?.toDate ? m.leftAt.toDate().toISOString() : m.leftAt,
+        lastUpdatedAt: m.lastUpdatedAt?.toDate ? m.lastUpdatedAt.toDate().toISOString() : m.lastUpdatedAt,
+        lastSeenAt: m.lastSeenAt?.toDate ? m.lastSeenAt.toDate().toISOString() : m.lastSeenAt,
+        guilds: (m.guilds || []).map((mg: any) => ({
+          ...mg,
+          lastUpdatedAt: mg.lastUpdatedAt?.toDate ? mg.lastUpdatedAt.toDate().toISOString() : mg.lastUpdatedAt,
+          lastSeenAt: mg.lastSeenAt?.toDate ? mg.lastSeenAt.toDate().toISOString() : mg.lastSeenAt,
+        }))
+      };
+    });
+  },
+  ['all-members-list'],
+  { tags: ['members'], revalidate: 3600 }
+);
 
 export default async function MembersPage() {
   const session = await getServerSession(authOptions);
@@ -17,8 +42,7 @@ export default async function MembersPage() {
     redirect("/profile?new=1");
   }
 
-  const membersSnapshot = await db.collection("members").orderBy("accountName", "asc").get();
-  let members = membersSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
+  let members = await getCachedMembers();
 
   // Filtering based on role (Previously handled by database permissions)
   if (!user || user.role === "WEB_MEMBER") {
@@ -40,12 +64,9 @@ export default async function MembersPage() {
   // Mask ranks for guilds the user is not part of, and serialize Timestamps
   const maskedMembers = members.map(m => ({
     ...m,
-    joinedAt: m.joinedAt?.toDate ? m.joinedAt.toDate().toISOString() : m.joinedAt,
-    lastUpdatedAt: (m.lastUpdatedAt || m.lastSeenAt)?.toDate ? (m.lastUpdatedAt || m.lastSeenAt).toDate().toISOString() : (m.lastUpdatedAt || m.lastSeenAt),
     guilds: (m.guilds || []).map((mg: any) => ({
       ...mg,
       rank: canSeeRank(user, mg as any) ? mg.rank : "",
-      lastUpdatedAt: (mg.lastUpdatedAt || mg.lastSeenAt)?.toDate ? (mg.lastUpdatedAt || mg.lastSeenAt).toDate().toISOString() : (mg.lastUpdatedAt || mg.lastSeenAt),
     }))
   }));
 

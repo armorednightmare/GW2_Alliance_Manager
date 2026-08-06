@@ -57,6 +57,9 @@ export async function GET(request: Request) {
     if (shouldSync) {
       logs = await syncAllGuildRosters();
       await db.collection("settings").doc("system").set({ lastSync: new Date() }, { merge: true });
+      
+      const { revalidateTag } = await import("next/cache");
+      revalidateTag("members");
     }
 
 

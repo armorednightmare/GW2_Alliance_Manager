@@ -98,3 +98,27 @@
   border-radius: 20px;
 }
 
+.col-search-input, .col-search-select {
+  width: 100%;
+  padding: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(0, 0, 0, 0.2);
+  color: white;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.col-search-input:focus, .col-search-select:focus {
+  border-color: var(--accent-color);
+}
+
+.col-search-select option {
+  background: #1e1e1e;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(-5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
