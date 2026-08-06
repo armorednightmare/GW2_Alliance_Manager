@@ -46,7 +46,11 @@ export const translations = {
     columnWvw: "WvW Vertreten",
     columnAlliance: "Allianz",
     columnRoles: "Rollen",
+    columnDiscord: "Discord-Name",
+    columnInvitedBy: "Eingeladen von",
+    columnComment: "Kommentar",
     columnActions: "Aktionen",
+    selectColumns: "Spalten anpassen",
     details: "Details",
     noMembersFound: "Keine entsprechenden Mitglieder gefunden.",
 
@@ -222,7 +226,11 @@ export const translations = {
     columnWvw: "WvW Representing",
     columnAlliance: "Alliance",
     columnRoles: "Roles",
+    columnDiscord: "Discord Name",
+    columnInvitedBy: "Invited by",
+    columnComment: "Comment",
     columnActions: "Actions",
+    selectColumns: "Customize Columns",
     details: "Details",
     noMembersFound: "No matching members found.",
 

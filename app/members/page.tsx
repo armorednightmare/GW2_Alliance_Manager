@@ -11,12 +11,23 @@ import { unstable_cache } from 'next/cache';
 
 const getCachedMembers = unstable_cache(
   async () => {
+    const usersSnapshot = await db.collection("users").get();
+    const userByMemberId = new Map();
+    usersSnapshot.docs.forEach(doc => {
+      const u = doc.data() as any;
+      if (u.memberId) {
+        userByMemberId.set(u.memberId, { id: doc.id, name: u.name, discordId: u.discordId });
+      }
+    });
+
     const membersSnapshot = await db.collection("members").orderBy("accountName", "asc").get();
     return membersSnapshot.docs.map(doc => {
       const m = doc.data() as any;
+      const linkedUser = userByMemberId.get(doc.id) || null;
       return {
         id: doc.id,
         ...m,
+        linkedUser,
         joinedAt: m.joinedAt?.toDate ? m.joinedAt.toDate().toISOString() : m.joinedAt,
         leftAt: m.leftAt?.toDate ? m.leftAt.toDate().toISOString() : m.leftAt,
         lastUpdatedAt: m.lastUpdatedAt?.toDate ? m.lastUpdatedAt.toDate().toISOString() : m.lastUpdatedAt,
