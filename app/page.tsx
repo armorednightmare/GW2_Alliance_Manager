@@ -97,7 +97,7 @@ export default async function Dashboard() {
             if (isComment) return false;
             const isAllianceRelevant = h.member.isAllianceMember || h.member.status === "INACTIVE_LEFT" || h.member.status === "INACTIVE_KICKED";
             if (!isAllianceRelevant) return false;
-            return ["RANK_CHANGE", "WVW_STATUS_CHANGE", "JOINED", "LEFT"].includes(eventType);
+            return ["RANK_CHANGE", "WVW_STATUS_CHANGE", "JOINED", "LEFT", "INVITED"].includes(eventType);
         });
       }
 

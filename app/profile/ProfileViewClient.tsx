@@ -122,7 +122,7 @@ export default function ProfileViewClient({ sanitizedUser, sanitizedMember }: { 
                         {item.description}
                       </div>
                     )}
-                    {(!item.description || (item.eventType !== "JOINED" && item.eventType !== "LEFT" && item.eventType !== "KICKED")) && item.newValue && (
+                    {(!item.description || (item.eventType !== "JOINED" && item.eventType !== "LEFT" && item.eventType !== "KICKED" && item.eventType !== "INVITED")) && item.newValue && (
                       <div style={{ opacity: 0.8, fontSize: '0.85rem' }}>➔ {item.newValue}</div>
                     )}
                   </li>

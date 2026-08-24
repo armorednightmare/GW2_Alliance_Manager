@@ -83,7 +83,7 @@ export default async function HistoryPage() {
         const isAllianceRelevant = h.member.isAllianceMember || h.member.status === "INACTIVE_LEFT" || h.member.status === "INACTIVE_KICKED";
         if (!isAllianceRelevant) return false;
 
-        const isPublicEvent = ["RANK_CHANGE", "WVW_STATUS_CHANGE", "JOINED", "LEFT"].includes(eventType);
+        const isPublicEvent = ["RANK_CHANGE", "WVW_STATUS_CHANGE", "JOINED", "LEFT", "INVITED"].includes(eventType);
         if (isPublicEvent) return true;
 
         return false;

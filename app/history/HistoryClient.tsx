@@ -8,6 +8,7 @@ function getEventColor(eventType: string) {
   if (!eventType) return "rgba(255,255,255,0.1)";
   const type = eventType.toUpperCase();
   if (type.includes("JOINED")) return "rgba(46, 204, 113, 0.4)"; // Grün
+  if (type.includes("INVITED")) return "rgba(102, 252, 241, 0.4)"; // Türkis/Cyan
   if (type.includes("LEFT") || type.includes("KICKED")) return "rgba(231, 76, 60, 0.4)"; // Rot
   if (type.includes("RANK")) return "rgba(52, 152, 219, 0.4)"; // Blau
   if (type.includes("WVW")) return "rgba(155, 89, 182, 0.4)"; // Lila

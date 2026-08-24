@@ -46,8 +46,16 @@ export async function syncAllGuildRosters() {
       const logsRes = await fetch(`https://api.guildwars2.com/v2/guild/${guild.id}/log?access_token=${guild.leaderToken}`);
       const inviterMap = new Map<string, string>();
       const kickMap = new Map<string, string>();
+      const userLatestLogType = new Map<string, string>();
+
       if (logsRes.ok) {
         const logs: GW2LogEntry[] = await logsRes.json();
+        logs.forEach(log => {
+          if (log.user && !userLatestLogType.has(log.user)) {
+            userLatestLogType.set(log.user, log.type);
+          }
+        });
+
         logs.reverse().forEach(log => {
           if (log.type === 'invited' && log.user && log.invited_by) {
             inviterMap.set(log.user, log.invited_by);
@@ -58,6 +66,13 @@ export async function syncAllGuildRosters() {
           }
         });
       }
+
+      const isInvitedRank = (rank: string) => (rank || "").trim().toLowerCase() === "invited";
+      const isApiMemberInvited = (apiData: GW2Member, accountName: string) => {
+        if (isInvitedRank(apiData.rank)) return true;
+        const latestLog = userLatestLogType.get(accountName);
+        return latestLog === "invited";
+      };
 
       // 2.5 Detect Renames
       // If a member is in the API but not in our DB, and we have a member in our DB with the EXACT SAME 
@@ -174,12 +189,27 @@ export async function syncAllGuildRosters() {
             await memberDoc.ref.update(updateData);
             
             if (hasRankChanged) {
-              await memberDoc.ref.collection("history").add({
-                eventType: "RANK_CHANGE",
-                oldValue: `${guildMembership.rank} (${guild.tag})`,
-                newValue: `${apiData.rank} (${guild.tag})`,
-                timestamp: new Date()
-              });
+              const oldRank = guildMembership.rank;
+              const newRank = apiData.rank;
+              const wasInvited = isInvitedRank(oldRank);
+              const isNowInvited = isInvitedRank(newRank);
+
+              if (wasInvited && !isNowInvited) {
+                await memberDoc.ref.collection("history").add({
+                  eventType: "JOINED",
+                  description: `${guild.name} [${guild.tag}] beigetreten`,
+                  newValue: `${guild.name} [${guild.tag}]`,
+                  timestamp: new Date()
+                });
+                syncLogs.push(`${member.accountName} joined ${guild.name} [${guild.tag}]`);
+              } else {
+                await memberDoc.ref.collection("history").add({
+                  eventType: "RANK_CHANGE",
+                  oldValue: `${oldRank} (${guild.tag})`,
+                  newValue: `${newRank} (${guild.tag})`,
+                  timestamp: new Date()
+                });
+              }
             }
           }
           // Remove from apiMemberMap so we only have NEW members left
@@ -238,14 +268,25 @@ export async function syncAllGuildRosters() {
           await memberRef.update(memberData);
         }
 
-        await memberRef.collection("history").add({
-          eventType: "JOINED",
-          description: `${guild.name} [${guild.tag}] beigetreten`,
-          newValue: `${guild.name} [${guild.tag}]`,
-          timestamp: new Date(apiData.joined)
-        });
+        const isMemberInvited = isApiMemberInvited(apiData, accountName);
 
-        syncLogs.push(`${accountName} joined ${guild.name} [${guild.tag}]`);
+        if (isMemberInvited) {
+          await memberRef.collection("history").add({
+            eventType: "INVITED",
+            description: `In ${guild.name} [${guild.tag}] eingeladen${inviter ? ` (von ${inviter})` : ''}`,
+            newValue: `${guild.name} [${guild.tag}]`,
+            timestamp: new Date(apiData.joined)
+          });
+          syncLogs.push(`${accountName} invited to ${guild.name} [${guild.tag}]`);
+        } else {
+          await memberRef.collection("history").add({
+            eventType: "JOINED",
+            description: `${guild.name} [${guild.tag}] beigetreten`,
+            newValue: `${guild.name} [${guild.tag}]`,
+            timestamp: new Date(apiData.joined)
+          });
+          syncLogs.push(`${accountName} joined ${guild.name} [${guild.tag}]`);
+        }
       }
 
       await db.collection("guilds").doc(guild.id).update({
