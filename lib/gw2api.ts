@@ -251,7 +251,9 @@ export async function syncAllGuildRosters() {
           lastUpdatedAt: new Date(),
           guilds: newGuildsArray,
           guildIds: newGuildsArray.map((g: any) => g.id),
-          ...(inviter ? { invitedBy: inviter } : {}),
+          // Only set invitedBy from the alliance guild – sub-guild invite info
+          // is irrelevant from an alliance management perspective.
+          ...(inviter && guild.isAllianceGuild ? { invitedBy: inviter } : {}),
           ...(guild.isAllianceGuild ? { isAllianceMember: true } : {})
         };
 

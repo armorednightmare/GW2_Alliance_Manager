@@ -93,10 +93,13 @@ export default async function AdminPage() {
   const allGuilds = sanitizeData(rawAllGuilds);
 
   // Guilds: Filtered for the current user's view in Guild Management
-  const subGuildIds = user.subGuildIds || [];
+  // Read managedGuildIds directly from Firestore (not from the session token)
+  // so that newly added guilds show up immediately without a session refresh.
   let guilds = allGuilds;
   if (!isHigherStaff(user)) {
-    guilds = allGuilds.filter((g: any) => subGuildIds.includes(g.id));
+    const userDoc = await db.collection("users").doc(user.id).get();
+    const freshManagedGuildIds: string[] = userDoc.exists ? (userDoc.data()?.managedGuildIds || []) : [];
+    guilds = allGuilds.filter((g: any) => freshManagedGuildIds.includes(g.id));
   }
 
   // Roles: only for Higher Staff
