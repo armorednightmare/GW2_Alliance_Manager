@@ -431,6 +431,96 @@ export async function triggerSync() {
   throw new Error("Nicht autorisiert");
 }
 
+export async function fixWrongInvitedBy(dryRun: boolean = true) {
+  const session = (await getServerSession(authOptions)) as UserSession | null;
+  if (!session) throw new Error("Nicht eingeloggt");
+  const user = session.user;
+  if (user.role !== "ADMIN") {
+    throw new Error("Nicht autorisiert (Nur Administrator erlaubt)");
+  }
+
+  const guildsSnapshot = await db.collection("guilds").get();
+  const allGuilds = guildsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+
+  const allianceInviterMap = new Map<string, string>();
+  const subGuildInviterMap = new Map<string, Set<string>>();
+  const logs: string[] = [];
+
+  logs.push(`🔍 Starte Überprüfung veralteter 'invitedBy'-Einträge (${dryRun ? "DRY-RUN" : "LIVE MODE"})...`);
+
+  for (const guild of allGuilds) {
+    if (!guild.leaderToken) continue;
+
+    try {
+      const logsRes = await fetch(`https://api.guildwars2.com/v2/guild/${guild.id}/log?access_token=${guild.leaderToken}`);
+      if (logsRes.ok) {
+        const guildLogs: any[] = await logsRes.json();
+        guildLogs.reverse().forEach(entry => {
+          if (entry.type === "invited" && entry.user && entry.invited_by) {
+            if (guild.isAllianceGuild) {
+              allianceInviterMap.set(entry.user, entry.invited_by);
+            } else {
+              if (!subGuildInviterMap.has(entry.user)) {
+                subGuildInviterMap.set(entry.user, new Set());
+              }
+              subGuildInviterMap.get(entry.user)!.add(entry.invited_by);
+            }
+          }
+        });
+      }
+    } catch (err: any) {
+      logs.push(`⚠️ Fehler beim Laden der Logs für ${guild.name}: ${err?.message || err}`);
+    }
+  }
+
+  const membersSnap = await db.collection("members").get();
+  let fixCount = 0;
+
+  for (const memberDoc of membersSnap.docs) {
+    const member = memberDoc.data();
+    const accountName = member.accountName;
+    const currentInvitedBy = member.invitedBy;
+
+    if (!currentInvitedBy) continue;
+
+    const allianceInviter = allianceInviterMap.get(accountName);
+    const subGuildInviters = subGuildInviterMap.get(accountName);
+
+    let newInvitedBy: string | null = currentInvitedBy;
+    let reason = "";
+
+    if (allianceInviter) {
+      if (currentInvitedBy !== allianceInviter) {
+        newInvitedBy = allianceInviter;
+        reason = `Korrektur zu Allianz-Log (${currentInvitedBy} -> ${allianceInviter})`;
+      }
+    } else if (subGuildInviters && subGuildInviters.has(currentInvitedBy)) {
+      newInvitedBy = null;
+      reason = `Werber '${currentInvitedBy}' stammte fälschlicherweise aus Subgilden-Sync`;
+    } else if (!member.isAllianceMember) {
+      newInvitedBy = null;
+      reason = `Nicht-Allianzmitglied mit Subgilden-Werber '${currentInvitedBy}'`;
+    }
+
+    if (newInvitedBy !== currentInvitedBy) {
+      fixCount++;
+      const actionText = dryRun ? "[DRY-RUN] Würde korrigieren" : "Korrigiere";
+      logs.push(`⚠️ ${actionText} | ${accountName}: ${reason}`);
+
+      if (!dryRun) {
+        await memberDoc.ref.update({
+          invitedBy: newInvitedBy
+        });
+      }
+    }
+  }
+
+  logs.push(`🏁 Fertig! ${fixCount} Einträge ${dryRun ? "würden korrigiert werden" : "wurden korrigiert"}.`);
+  revalidatePath("/members");
+  revalidatePath("/admin");
+  return { success: true, count: fixCount, logs };
+}
+
 // ── Member Import (Excel) ───────────────────────────────────────────────────
 
 export async function getImportHeaders(formData: FormData) {

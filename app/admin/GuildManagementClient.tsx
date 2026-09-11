@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { resolveGuildsFromToken, addGuild, deleteGuild, updateGuildToken, triggerSync, toggleAllianceGuild, addManualGuild, toggleGuildPublicRanks } from "./actions";
+import { resolveGuildsFromToken, addGuild, deleteGuild, updateGuildToken, triggerSync, toggleAllianceGuild, addManualGuild, toggleGuildPublicRanks, fixWrongInvitedBy } from "./actions";
 import { isHigherStaff } from "@/lib/permissions-client";
 
 type GuildInfo = { id: string; name: string; tag: string };
@@ -196,6 +196,20 @@ export default function GuildManagementClient({ guilds, session }: { guilds: Gui
       const logs = await triggerSync();
       setSyncLogs(logs);
       feedback(`Sync abgeschlossen – ${logs.length} Änderung(en)`);
+    } catch (e: any) {
+      feedback(e.message, true);
+    }
+    setBusy(false);
+  };
+
+  const handleFixInvitedBy = async (dryRun: boolean) => {
+    setBusy(true);
+    setSyncLogs([]);
+    setMsg(dryRun ? "Prüfe InvitedBy-Einträge (Dry-Run)…" : "Bereinige InvitedBy-Einträge…");
+    try {
+      const res = await fixWrongInvitedBy(dryRun);
+      setSyncLogs(res.logs);
+      feedback(dryRun ? `Prüfung beendet: ${res.count} Korrektur(en) ermittelt.` : `Bereinigung beendet: ${res.count} Eintrag/Einträge korrigiert.`);
     } catch (e: any) {
       feedback(e.message, true);
     }
@@ -495,7 +509,7 @@ export default function GuildManagementClient({ guilds, session }: { guilds: Gui
         </div>
       )}
 
-      {/* Sync Button */}
+      {/* Sync & Maintenance Buttons */}
       <div style={{ display: "flex", alignItems: "center", gap: "1rem", flexWrap: "wrap" }}>
         <button
           onClick={handleSync}
@@ -505,6 +519,29 @@ export default function GuildManagementClient({ guilds, session }: { guilds: Gui
         >
           🔄 {busy && syncLogs.length === 0 ? "Sync läuft…" : "Guild Roster Sync starten"}
         </button>
+
+        {user?.role === "ADMIN" && (
+          <>
+            <button
+              onClick={() => handleFixInvitedBy(true)}
+              disabled={busy}
+              className="btn-secondary"
+              style={{ padding: "0.8rem 1.2rem", background: "rgba(255, 255, 255, 0.08)", border: "1px solid rgba(255, 255, 255, 0.2)" }}
+              title="Prüfe alte 'invitedBy'-Einträge ohne Änderungen vorzunehmen"
+            >
+              🔍 "InvitedBy" prüfen (Dry-Run)
+            </button>
+            <button
+              onClick={() => handleFixInvitedBy(false)}
+              disabled={busy}
+              className="btn-secondary"
+              style={{ padding: "0.8rem 1.2rem", background: "rgba(231, 76, 60, 0.2)", border: "1px solid rgba(231, 76, 60, 0.5)", color: "#ff6b6b" }}
+              title="Korrigiere/bereinige alte 'invitedBy'-Einträge in Firestore"
+            >
+              🛠️ "InvitedBy" bereinigen (Live)
+            </button>
+          </>
+        )}
       </div>
 
       {/* Sync Logs */}
