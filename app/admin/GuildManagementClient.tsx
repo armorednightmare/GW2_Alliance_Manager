@@ -546,9 +546,22 @@ export default function GuildManagementClient({ guilds, session }: { guilds: Gui
 
       {/* Sync Logs */}
       {syncLogs.length > 0 && (
-        <div style={{ marginTop: "1rem", padding: "1rem", background: "rgba(0,0,0,0.3)", borderRadius: "8px", fontFamily: "monospace", fontSize: "0.85rem" }}>
+        <div style={{
+          marginTop: "1.25rem",
+          padding: "1rem",
+          background: "rgba(0,0,0,0.4)",
+          border: "1px solid rgba(255,255,255,0.1)",
+          borderRadius: "8px",
+          fontFamily: "monospace",
+          fontSize: "0.85rem",
+          maxHeight: "360px",
+          overflowY: "auto"
+        }}>
+          <div style={{ fontWeight: 600, marginBottom: "0.5rem", opacity: 0.7, color: "var(--accent-color)" }}>
+            📋 Protokoll / Ausgabefenster:
+          </div>
           {syncLogs.map((log, i) => (
-            <div key={i} style={{ padding: "0.15rem 0", opacity: 0.9 }}>› {log}</div>
+            <div key={i} style={{ padding: "0.2rem 0", opacity: 0.9, borderBottom: "1px solid rgba(255,255,255,0.03)" }}>› {log}</div>
           ))}
         </div>
       )}
