@@ -492,20 +492,59 @@ export async function fixWrongInvitedBy(dryRun: boolean = true) {
     if (allianceInviter) {
       if (currentInvitedBy !== allianceInviter) {
         newInvitedBy = allianceInviter;
-        reason = `Korrektur zu Allianz-Log (${currentInvitedBy} -> ${allianceInviter})`;
+        reason = `Falsch (Subgilde?) → korrekter Allianz-Werber gefunden`;
       }
     } else if (subGuildInviters && subGuildInviters.has(currentInvitedBy)) {
       newInvitedBy = null;
-      reason = `Werber '${currentInvitedBy}' stammte fälschlicherweise aus Subgilden-Sync`;
+      reason = `Werber aus Subgilden-Sync – kein Allianz-Eintrag vorhanden`;
     } else if (!member.isAllianceMember) {
       newInvitedBy = null;
-      reason = `Nicht-Allianzmitglied mit Subgilden-Werber '${currentInvitedBy}'`;
+      reason = `Mitglied ist kein Allianzmitglied`;
     }
 
     if (newInvitedBy !== currentInvitedBy) {
       fixCount++;
-      const actionText = dryRun ? "[DRY-RUN] Würde korrigieren" : "Korrigiere";
-      logs.push(`⚠️ ${actionText} | ${accountName}: ${reason}`);
+
+      // Try to find when invitedBy was set via the history subcollection or joinedAt/lastUpdatedAt
+      let setAt = "unbekannt";
+      try {
+        const histSnap = await memberDoc.ref
+          .collection("history")
+          .orderBy("timestamp", "desc")
+          .limit(25)
+          .get();
+        for (const hDoc of histSnap.docs) {
+          const hData = hDoc.data();
+          const t = hData.type || hData.eventType;
+          if (t === "INVITED_BY_CHANGED" || t === "INVITED") {
+            const ts = hData.timestamp;
+            const date = ts?.toDate ? ts.toDate() : new Date(ts);
+            if (!isNaN(date.getTime())) {
+              setAt = date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
+              break;
+            }
+          }
+        }
+      } catch {
+        // Ignore if query fails
+      }
+
+      if (setAt === "unbekannt") {
+        const rawDate = member.joinedAt || member.lastUpdatedAt;
+        if (rawDate) {
+          const date = rawDate?.toDate ? rawDate.toDate() : new Date(rawDate);
+          if (!isNaN(date.getTime())) {
+            const prefix = member.joinedAt ? "Beitritt: " : "Stand: ~";
+            setAt = `${prefix}${date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}`;
+          }
+        }
+      }
+
+      const newLabel = newInvitedBy === null ? "(leer / entfernen)" : `"${newInvitedBy}"`;
+      const actionText = dryRun ? "[DRY-RUN]" : "[LIVE]";
+      logs.push(
+        `${actionText} ${accountName} | Gesetzt am: ${setAt} | Alt: "${currentInvitedBy}" → Neu: ${newLabel} | Grund: ${reason}`
+      );
 
       if (!dryRun) {
         await memberDoc.ref.update({
