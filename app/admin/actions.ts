@@ -432,129 +432,195 @@ export async function triggerSync() {
 }
 
 export async function fixWrongInvitedBy(dryRun: boolean = true) {
-  const session = (await getServerSession(authOptions)) as UserSession | null;
-  if (!session) throw new Error("Nicht eingeloggt");
-  const user = session.user;
-  if (user.role !== "ADMIN") {
-    throw new Error("Nicht autorisiert (Nur Administrator erlaubt)");
-  }
+  const session = await requireAdmin();
 
   const guildsSnapshot = await db.collection("guilds").get();
   const allGuilds = guildsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
 
-  const allianceInviterMap = new Map<string, string>();
-  const subGuildInviterMap = new Map<string, Set<string>>();
+  // Find Alliance Guild ("Frog")
+  const allianceGuild = allGuilds.find(g => g.isAllianceGuild || g.tag?.toLowerCase() === "frog" || g.name?.toLowerCase().includes("sit on you"));
+  if (!allianceGuild) {
+    throw new Error("Allianz-Gilde (Frog) wurde nicht in der Datenbank gefunden.");
+  }
+  if (!allianceGuild.leaderToken) {
+    throw new Error(`Allianz-Gilde "${allianceGuild.name}" besitzt keinen API-Key (Leader Token).`);
+  }
+
   const logs: string[] = [];
+  const mode = dryRun ? "DRY-RUN" : "LIVE";
 
-  logs.push(`🔍 Starte Überprüfung veralteter 'invitedBy'-Einträge (${dryRun ? "DRY-RUN" : "LIVE MODE"})...`);
+  logs.push(`# Info: Überprüfung veralteter 'invitedBy'-Einträge (${mode})`);
+  logs.push(`# Allianz-Gilde: ${allianceGuild.name} [${allianceGuild.tag}]`);
 
-  for (const guild of allGuilds) {
-    if (!guild.leaderToken) continue;
+  // Fetch Alliance Guild logs from GW2 API
+  let guildLogs: any[] = [];
+  try {
+    const logsRes = await fetch(`https://api.guildwars2.com/v2/guild/${allianceGuild.id}/log?access_token=${allianceGuild.leaderToken}`);
+    if (!logsRes.ok) {
+      throw new Error(`GW2 API Antwort-Status ${logsRes.status}: ${logsRes.statusText}`);
+    }
+    guildLogs = await logsRes.json();
+  } catch (err: any) {
+    throw new Error(`Fehler beim Abrufen der API-Logs für Allianz-Gilde: ${err?.message || err}`);
+  }
 
-    try {
-      const logsRes = await fetch(`https://api.guildwars2.com/v2/guild/${guild.id}/log?access_token=${guild.leaderToken}`);
-      if (logsRes.ok) {
-        const guildLogs: any[] = await logsRes.json();
-        guildLogs.reverse().forEach(entry => {
-          if (entry.type === "invited" && entry.user && entry.invited_by) {
-            if (guild.isAllianceGuild) {
-              allianceInviterMap.set(entry.user, entry.invited_by);
-            } else {
-              if (!subGuildInviterMap.has(entry.user)) {
-                subGuildInviterMap.set(entry.user, new Set());
-              }
-              subGuildInviterMap.get(entry.user)!.add(entry.invited_by);
-            }
-          }
-        });
+  // Determine earliest log date in the Alliance Guild API logs (cutoff date)
+  let earliestAllianceLogDate: Date | null = null;
+  for (const entry of guildLogs) {
+    if (entry.time) {
+      const t = new Date(entry.time);
+      if (!isNaN(t.getTime())) {
+        if (!earliestAllianceLogDate || t < earliestAllianceLogDate) {
+          earliestAllianceLogDate = t;
+        }
       }
-    } catch (err: any) {
-      logs.push(`⚠️ Fehler beim Laden der Logs für ${guild.name}: ${err?.message || err}`);
     }
   }
 
+  const cutoffStr = earliestAllianceLogDate 
+    ? earliestAllianceLogDate.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
+    : "unbekannt";
+
+  logs.push(`# API-Log-Cutoff-Datum: ${cutoffStr} (Vor diesem Datum wird nichts korrigiert)`);
+
+  // Build members list and rename map
   const membersSnap = await db.collection("members").get();
+  const renameMap = new Map<string, string>(); // oldName (lower) -> currentAccountName
+  const activeAccountNames = new Set<string>();
+
+  for (const doc of membersSnap.docs) {
+    const data = doc.data();
+    if (data.accountName) {
+      activeAccountNames.add(data.accountName.toLowerCase());
+    }
+    if (Array.isArray(data.previousAccountNames)) {
+      for (const old of data.previousAccountNames) {
+        if (old) renameMap.set(old.toLowerCase(), data.accountName);
+      }
+    }
+  }
+
+  // Also check if any member has RENAME events in history
+  try {
+    const renamesSnap = await db.collectionGroup("history").where("eventType", "==", "RENAME").get();
+    for (const hDoc of renamesSnap.docs) {
+      const hData = hDoc.data();
+      if (hData.oldValue && hData.newValue) {
+        renameMap.set(hData.oldValue.toLowerCase(), hData.newValue);
+      }
+    }
+  } catch {
+    // collectionGroup query may not have an index; previousAccountNames will be used
+  }
+
+  // Map of accountName (lower) -> { inviter: string, time: Date } from alliance guild logs
+  const allianceInviteMap = new Map<string, { inviter: string, time: Date }>();
+  guildLogs.forEach(entry => {
+    if (entry.type === "invited" && entry.user && entry.invited_by) {
+      const userKey = entry.user.toLowerCase();
+      const resolvedInviter = renameMap.get(entry.invited_by.toLowerCase()) || entry.invited_by;
+      allianceInviteMap.set(userKey, {
+        inviter: resolvedInviter,
+        time: new Date(entry.time)
+      });
+    }
+  });
+
+  logs.push(`# Gefundene Allianz-Einladungen im API-Log: ${allianceInviteMap.size}`);
+  logs.push(`# Filter: Nur Mitglieder in Frog ab dem Cutoff-Datum (${cutoffStr})`);
+  logs.push(`# Trennzeichen: Semikolon (;)`);
+  logs.push(`Modus;Account;Beitritt;Werber_Alt;Werber_Neu;Grund`);
+
   let fixCount = 0;
 
   for (const memberDoc of membersSnap.docs) {
     const member = memberDoc.data();
     const accountName = member.accountName;
-    const currentInvitedBy = member.invitedBy;
+    if (!accountName) continue;
 
-    if (!currentInvitedBy) continue;
+    // 1. Nur Mitglieder, die in Frog sind
+    const isFrogMember =
+      member.isAllianceMember ||
+      (Array.isArray(member.guildIds) && member.guildIds.includes(allianceGuild.id)) ||
+      (Array.isArray(member.guilds) && member.guilds.some((g: any) => g.id === allianceGuild.id || g.isAllianceGuild || g.tag?.toLowerCase() === "frog"));
 
-    const allianceInviter = allianceInviterMap.get(accountName);
-    const subGuildInviters = subGuildInviterMap.get(accountName);
-
-    let newInvitedBy: string | null = currentInvitedBy;
-    let reason = "";
-
-    if (allianceInviter) {
-      if (currentInvitedBy !== allianceInviter) {
-        newInvitedBy = allianceInviter;
-        reason = `Falsch (Subgilde?) → korrekter Allianz-Werber gefunden`;
-      }
-    } else if (subGuildInviters && subGuildInviters.has(currentInvitedBy)) {
-      newInvitedBy = null;
-      reason = `Werber aus Subgilden-Sync – kein Allianz-Eintrag vorhanden`;
-    } else if (!member.isAllianceMember) {
-      newInvitedBy = null;
-      reason = `Mitglied ist kein Allianzmitglied`;
+    if (!isFrogMember) {
+      continue; // Nicht in Frog -> keine Korrektur
     }
 
-    if (newInvitedBy !== currentInvitedBy) {
+    // 2. Beitrittsdatum prüfen
+    let joinDate: Date | null = null;
+    if (member.joinedAt) {
+      const d = member.joinedAt?.toDate ? member.joinedAt.toDate() : new Date(member.joinedAt);
+      if (!isNaN(d.getTime())) joinDate = d;
+    }
+
+    let inviteInfo = allianceInviteMap.get(accountName.toLowerCase());
+    // Falls der Account umbenannt wurde, prüfen ob unter einem alten Namen eine Einladung existiert
+    if (!inviteInfo && Array.isArray(member.previousAccountNames)) {
+      for (const prev of member.previousAccountNames) {
+        if (prev && allianceInviteMap.has(prev.toLowerCase())) {
+          inviteInfo = allianceInviteMap.get(prev.toLowerCase());
+          break;
+        }
+      }
+    }
+
+    // Vor dem Cutoff-Datum soll nichts korrigiert werden
+    if (joinDate && earliestAllianceLogDate && joinDate < earliestAllianceLogDate && !inviteInfo) {
+      continue;
+    }
+
+    const currentInvitedBy = member.invitedBy || "";
+    let newInvitedBy: string | null = null;
+    let reason = "";
+
+    // Fall A: Im API-Log von Frog ist der Werber dokumentiert
+    if (inviteInfo) {
+      const apiInviter = inviteInfo.inviter;
+      const currentNormalized = renameMap.get(currentInvitedBy.toLowerCase()) || currentInvitedBy;
+
+      if (currentNormalized !== apiInviter) {
+        newInvitedBy = apiInviter;
+        reason = currentInvitedBy ? "Allianz-Werber aus API-Log weicht ab" : "Allianz-Werber aus API-Log nachgetragen";
+      }
+    }
+
+    // Fall B: Werber-Account wurde umbenannt
+    if (!newInvitedBy && currentInvitedBy && renameMap.has(currentInvitedBy.toLowerCase())) {
+      const renamedTo = renameMap.get(currentInvitedBy.toLowerCase())!;
+      if (renamedTo !== currentInvitedBy) {
+        newInvitedBy = renamedTo;
+        reason = `Werber umbenannt (${currentInvitedBy} zu ${renamedTo})`;
+      }
+    }
+
+    if (newInvitedBy !== null && newInvitedBy !== currentInvitedBy) {
       fixCount++;
 
-      // Try to find when invitedBy was set via the history subcollection or joinedAt/lastUpdatedAt
-      let setAt = "unbekannt";
-      try {
-        const histSnap = await memberDoc.ref
-          .collection("history")
-          .orderBy("timestamp", "desc")
-          .limit(25)
-          .get();
-        for (const hDoc of histSnap.docs) {
-          const hData = hDoc.data();
-          const t = hData.type || hData.eventType;
-          if (t === "INVITED_BY_CHANGED" || t === "INVITED") {
-            const ts = hData.timestamp;
-            const date = ts?.toDate ? ts.toDate() : new Date(ts);
-            if (!isNaN(date.getTime())) {
-              setAt = date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" });
-              break;
-            }
-          }
-        }
-      } catch {
-        // Ignore if query fails
-      }
+      const dateStr = joinDate 
+        ? joinDate.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })
+        : (inviteInfo?.time ? inviteInfo.time.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" }) : "unbekannt");
 
-      if (setAt === "unbekannt") {
-        const rawDate = member.joinedAt || member.lastUpdatedAt;
-        if (rawDate) {
-          const date = rawDate?.toDate ? rawDate.toDate() : new Date(rawDate);
-          if (!isNaN(date.getTime())) {
-            const prefix = member.joinedAt ? "Beitritt: " : "Stand: ~";
-            setAt = `${prefix}${date.toLocaleDateString("de-DE", { day: "2-digit", month: "2-digit", year: "numeric" })}`;
-          }
-        }
-      }
-
-      const newLabel = newInvitedBy === null ? "(leer / entfernen)" : `"${newInvitedBy}"`;
-      const actionText = dryRun ? "[DRY-RUN]" : "[LIVE]";
-      logs.push(
-        `${actionText} ${accountName} | Gesetzt am: ${setAt} | Alt: "${currentInvitedBy}" → Neu: ${newLabel} | Grund: ${reason}`
-      );
+      logs.push(`${mode};${accountName};${dateStr};${currentInvitedBy || ""};${newInvitedBy};${reason}`);
 
       if (!dryRun) {
         await memberDoc.ref.update({
-          invitedBy: newInvitedBy
+          invitedBy: newInvitedBy,
+          lastUpdatedAt: new Date()
+        });
+        await memberDoc.ref.collection("history").add({
+          eventType: "INVITED_BY_CHANGED",
+          oldValue: currentInvitedBy || null,
+          newValue: newInvitedBy,
+          description: reason,
+          timestamp: new Date()
         });
       }
     }
   }
 
-  logs.push(`🏁 Fertig! ${fixCount} Einträge ${dryRun ? "würden korrigiert werden" : "wurden korrigiert"}.`);
+  logs.push(`# 🏁 Fertig: ${fixCount} Eintrag/Einträge ${dryRun ? "würden korrigiert werden" : "wurden korrigiert"}.`);
   revalidatePath("/members");
   revalidatePath("/admin");
   return { success: true, count: fixCount, logs };

@@ -99,7 +99,13 @@ export async function syncAllGuildRosters() {
 
           if (renamedDoc) {
             const oldName = renamedDoc.data().accountName;
-            await renamedDoc.ref.update({ accountName: apiName });
+            const existingPrev = renamedDoc.data().previousAccountNames || [];
+            const updatedPrev = Array.from(new Set([...existingPrev, oldName]));
+            await renamedDoc.ref.update({
+              accountName: apiName,
+              previousAccountNames: updatedPrev,
+              lastUpdatedAt: new Date()
+            });
             await renamedDoc.ref.collection("history").add({
               eventType: "RENAME",
               oldValue: oldName,
@@ -107,6 +113,25 @@ export async function syncAllGuildRosters() {
               timestamp: new Date()
             });
             syncLogs.push(`Rename detected: ${oldName} -> ${apiName}`);
+
+            // Update any members whose invitedBy was the old accountName
+            const invitedMembersSnap = await db.collection("members").where("invitedBy", "==", oldName).get();
+            for (const invDoc of invitedMembersSnap.docs) {
+              await invDoc.ref.update({
+                invitedBy: apiName,
+                lastUpdatedAt: new Date()
+              });
+              await invDoc.ref.collection("history").add({
+                eventType: "INVITED_BY_CHANGED",
+                oldValue: oldName,
+                newValue: apiName,
+                description: `Werber umbenannt: ${oldName} → ${apiName}`,
+                timestamp: new Date()
+              });
+            }
+            if (!invitedMembersSnap.empty) {
+              syncLogs.push(`Updated invitedBy for ${invitedMembersSnap.size} member(s): ${oldName} -> ${apiName}`);
+            }
           }
         }
       }

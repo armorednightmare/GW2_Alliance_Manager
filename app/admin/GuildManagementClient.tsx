@@ -557,11 +557,22 @@ export default function GuildManagementClient({ guilds, session }: { guilds: Gui
           maxHeight: "360px",
           overflowY: "auto"
         }}>
-          <div style={{ fontWeight: 600, marginBottom: "0.5rem", opacity: 0.7, color: "var(--accent-color)" }}>
-            📋 Protokoll / Ausgabefenster:
+          <div style={{ fontWeight: 600, marginBottom: "0.5rem", opacity: 0.9, color: "var(--accent-color)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <span>📋 Protokoll / Ausgabefenster:</span>
+            <button
+              onClick={() => {
+                navigator.clipboard.writeText(syncLogs.join("\n"));
+                feedback("CSV / Protokoll in Zwischenablage kopiert! ✓");
+              }}
+              className="btn-secondary"
+              style={{ padding: "0.25rem 0.6rem", fontSize: "0.75rem", background: "rgba(255,255,255,0.08)", border: "1px solid rgba(255,255,255,0.2)", cursor: "pointer" }}
+              title="Kopiert die gesamte Ausgabe als CSV/Text in die Zwischenablage"
+            >
+              📋 CSV kopieren
+            </button>
           </div>
           {syncLogs.map((log, i) => (
-            <div key={i} style={{ padding: "0.2rem 0", opacity: 0.9, borderBottom: "1px solid rgba(255,255,255,0.03)" }}>› {log}</div>
+            <div key={i} style={{ padding: "0.2rem 0", opacity: 0.9, borderBottom: "1px solid rgba(255,255,255,0.03)", whiteSpace: "pre-wrap" }}>{log}</div>
           ))}
         </div>
       )}
