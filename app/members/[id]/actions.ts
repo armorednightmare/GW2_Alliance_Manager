@@ -1,6 +1,6 @@
 "use server";
 import { db } from "@/lib/firebase-admin";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 import { canEditMember, AuthUser } from "@/lib/permissions";
@@ -75,6 +75,7 @@ export async function updateMemberComment(data: FormData) {
 
   revalidatePath(`/members/${memberId}`);
   revalidatePath(`/members`);
+  revalidateTag("members");
 }
 
 export async function addMemberToManualGuild(data: FormData) {
@@ -133,6 +134,7 @@ export async function addMemberToManualGuild(data: FormData) {
 
   revalidatePath(`/members/${memberId}`);
   revalidatePath(`/members`);
+  revalidateTag("members");
 }
 
 export async function removeMemberFromManualGuild(data: FormData) {
@@ -189,6 +191,7 @@ export async function removeMemberFromManualGuild(data: FormData) {
 
   revalidatePath(`/members/${memberId}`);
   revalidatePath(`/members`);
+  revalidateTag("members");
 }
 
 export async function updateDiscordName(data: FormData) {
@@ -243,4 +246,5 @@ export async function updateDiscordName(data: FormData) {
 
   revalidatePath(`/members/${memberId}`);
   revalidatePath(`/members`);
+  revalidateTag("members");
 }

@@ -1,6 +1,6 @@
 "use server";
 import { db } from "@/lib/firebase-admin";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/auth";
 
@@ -206,6 +206,7 @@ export async function addManualRole(data: FormData) {
     });
     revalidatePath("/admin", "layout");
     revalidatePath("/members", "layout");
+    revalidateTag("members");
   } catch (e) {
     throw new Error("Fehler beim Erstellen der Rolle");
   }
@@ -219,6 +220,7 @@ export async function deleteManualRole(data: FormData) {
   await db.collection("roles").doc(id).delete();
   revalidatePath("/admin", "layout");
   revalidatePath("/members", "layout");
+  revalidateTag("members");
 }
 
 export async function createManualUser(data: FormData) {
@@ -409,6 +411,7 @@ export async function toggleGuildPublicRanks(guildId: string, status: boolean) {
   revalidatePath("/admin");
   revalidatePath("/members");
   revalidatePath(`/members/[id]`, "page");
+  revalidateTag("members");
 }
 
 export async function triggerSync() {
@@ -425,6 +428,7 @@ export async function triggerSync() {
     const logs = await syncAllGuildRosters();
     revalidatePath("/");
     revalidatePath("/admin");
+    revalidateTag("members");
     return logs;
   }
 
@@ -623,6 +627,7 @@ export async function fixWrongInvitedBy(dryRun: boolean = true) {
   logs.push(`# 🏁 Fertig: ${fixCount} Eintrag/Einträge ${dryRun ? "würden korrigiert werden" : "wurden korrigiert"}.`);
   revalidatePath("/members");
   revalidatePath("/admin");
+  revalidateTag("members");
   return { success: true, count: fixCount, logs };
 }
 
@@ -1015,6 +1020,7 @@ export async function executeMemberImport(selectedItems: any[], overwriteConflic
   }
 
   revalidatePath("/members");
+  revalidateTag("members");
   return results;
 }
 
